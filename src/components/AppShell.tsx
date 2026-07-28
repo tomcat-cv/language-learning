@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { ProgressProvider } from "./ProgressProvider";
 
 const links = [
   { href: "/", label: "今日", icon: "◉" },
@@ -29,6 +30,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       </nav>
       <div className="sidebar-note"><b>今日一句</b><p>千里の道も一歩から。<br />千里之行，始于足下。</p></div>
     </aside>
-    <main className="main-area">{children}</main>
+    <main className="main-area">
+      <ProgressProvider>{children}</ProgressProvider>
+    </main>
   </div>;
 }
