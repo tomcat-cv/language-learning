@@ -373,8 +373,7 @@ flowchart TB
 
 ```text
 .
-├── AGENT.md                 # AI 开发规范
-├── AGENTS.md                # Codex 自动发现入口
+├── AGENTS.md                # AI 开发规范与 Codex 自动发现入口
 ├── PROJECT.md               # 产品与技术主文档
 ├── README.md                # 使用说明
 ├── src
@@ -704,7 +703,7 @@ src/
 
 新会话开始时：
 
-1. 完整阅读 `AGENT.md` 和 `PROJECT.md`。
+1. 完整阅读 `AGENTS.md` 和 `PROJECT.md`。
 2. 查看 `git status`、最近提交和当前分支。
 3. 检查相关源码，确认本文状态没有过期。
 4. 根据路线图选择一个明确阶段目标。
