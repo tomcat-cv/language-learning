@@ -16,7 +16,7 @@
 ## 2. 项目基本情况
 
 - 项目名称：日々（Hibi）
-- 代码目录：`/Users/lixiushi/Documents/project/simon/languageLearning`
+- 代码目录：项目仓库根目录（实际路径因开发与部署环境而异）
 - 当前形态：Next.js 响应式 Web 原型
 - 第一目标语言：日语
 - 第一目标等级：JLPT N5，包含可跳过的假名入门

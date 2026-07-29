@@ -12,7 +12,7 @@
 ## 安装
 
 ```bash
-cd languageLearning
+cd language-learning
 npm install
 ```
 
