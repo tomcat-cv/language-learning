@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Hibi database backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+Persistent=true
+RandomizedDelaySec=15m
+Unit=hibi-db-backup.service
+
+[Install]
+WantedBy=timers.target

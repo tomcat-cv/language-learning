@@ -9,6 +9,7 @@ import {
   users,
 } from "@/db/schema";
 import {
+  scheduleLearnedItem,
   scheduleMasteryDeclaration,
   scheduleReview,
   type ReviewSchedule,
@@ -167,6 +168,57 @@ export async function listDueReviews(now = new Date()) {
     learningCount: allStates.filter((state) => state.stage === "learning")
       .length,
   };
+}
+
+export async function completeLearning(
+  knowledgePointId: string,
+  now = new Date(),
+) {
+  const item = findKnowledgePoint(knowledgePointId);
+  if (!item) {
+    throw new Error("UNKNOWN_KNOWLEDGE_POINT");
+  }
+
+  const db = getDatabase();
+  return db.transaction(async (transaction) => {
+    const [currentRow] = await transaction
+      .select()
+      .from(reviewStates)
+      .where(
+        and(
+          eq(reviewStates.userId, LOCAL_USER_ID),
+          eq(reviewStates.knowledgePointId, knowledgePointId),
+        ),
+      )
+      .limit(1);
+
+    if (!currentRow || currentRow.stage !== "learning") {
+      throw new Error("LEARNING_NOT_REQUIRED");
+    }
+
+    const previousState = toSchedule(currentRow);
+    const nextState = scheduleLearnedItem(now);
+    const [updated] = await transaction
+      .update(reviewStates)
+      .set({ ...nextState, updatedAt: now })
+      .where(
+        and(
+          eq(reviewStates.userId, LOCAL_USER_ID),
+          eq(reviewStates.knowledgePointId, knowledgePointId),
+        ),
+      )
+      .returning();
+    await transaction.insert(reviewLogs).values({
+      userId: LOCAL_USER_ID,
+      knowledgePointId,
+      eventType: "learning_completed",
+      previousState,
+      nextState,
+      createdAt: now,
+    });
+
+    return toProgressState(updated);
+  });
 }
 
 export async function submitReview(

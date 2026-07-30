@@ -1,0 +1,95 @@
+import pg from "pg";
+
+const { Client } = pg;
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error("缺少 DATABASE_URL，无法验证数据库。");
+  process.exit(1);
+}
+
+const requiredTables = [
+  "users",
+  "knowledge_points",
+  "mastery_declarations",
+  "review_states",
+  "attempts",
+  "review_logs",
+];
+const verificationId = `__hibi_verify_${process.pid}`;
+const client = new Client({ connectionString });
+
+try {
+  await client.connect();
+
+  const tableResult = await client.query(
+    `select table_name
+       from information_schema.tables
+      where table_schema = 'public'
+        and table_name = any($1::text[])`,
+    [requiredTables],
+  );
+  const existingTables = new Set(
+    tableResult.rows.map((row) => row.table_name),
+  );
+  const missingTables = requiredTables.filter(
+    (table) => !existingTables.has(table),
+  );
+  if (missingTables.length > 0) {
+    throw new Error(`缺少数据表：${missingTables.join(", ")}`);
+  }
+
+  await client.query("begin");
+  await client.query("insert into users (id) values ($1)", [verificationId]);
+  await client.query(
+    `insert into knowledge_points (id, kind, level, content_version)
+     values ($1, 'grammar', 'N5', 1)`,
+    [verificationId],
+  );
+  await client.query(
+    `insert into mastery_declarations (user_id, knowledge_point_id)
+     values ($1, $1)`,
+    [verificationId],
+  );
+  await client.query(
+    `insert into review_states
+       (user_id, knowledge_point_id, stage, due_at, interval_days, consecutive_successes)
+     values ($1, $1, 'self_declared', now(), 1, 0)`,
+    [verificationId],
+  );
+  await client.query(
+    `insert into attempts
+       (user_id, knowledge_point_id, exercise_type, answer, correct)
+     values ($1, $1, 'deployment_check', 'ok', true)`,
+    [verificationId],
+  );
+  await client.query(
+    `insert into review_logs
+       (user_id, knowledge_point_id, event_type, previous_state, next_state)
+     values ($1, $1, 'mastery_declared', null, $2::jsonb)`,
+    [
+      verificationId,
+      JSON.stringify({
+        stage: "self_declared",
+        dueAt: new Date().toISOString(),
+        intervalDays: 1,
+        consecutiveSuccesses: 0,
+      }),
+    ],
+  );
+  await client.query("rollback");
+
+  console.log("数据库迁移与事务写入验证通过；验证数据已回滚。");
+} catch (error) {
+  try {
+    await client.query("rollback");
+  } catch {
+    // The transaction may not have started.
+  }
+  console.error(
+    error instanceof Error ? error.message : "数据库验证失败。",
+  );
+  process.exitCode = 1;
+} finally {
+  await client.end();
+}

@@ -23,6 +23,13 @@ export function progressErrorResponse(error: unknown) {
     );
   }
 
+  if (error instanceof Error && error.message === "LEARNING_NOT_REQUIRED") {
+    return NextResponse.json(
+      { error: "这项内容当前不需要重新学习。" },
+      { status: 409 },
+    );
+  }
+
   return NextResponse.json(
     { error: "学习进度服务暂时不可用，请稍后重试。" },
     { status: 500 },

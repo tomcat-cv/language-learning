@@ -161,13 +161,14 @@ export function ReviewQueue() {
           {learningCount > 0 && `另有 ${learningCount} 项需要重新学习。`}
         </p>
         {message && <div className="feedback review-feedback">{message}</div>}
-        <Link
-          className="primary-button"
-          href="/grammar"
-          style={{ marginTop: 22 }}
-        >
-          浏览文法与单词 →
-        </Link>
+        <div className="focus-actions" style={{ marginTop: 22 }}>
+          <Link className="primary-button" href="/grammar">
+            前往文法补学 →
+          </Link>
+          <Link className="secondary-button" href="/vocabulary">
+            前往单词补学
+          </Link>
+        </div>
       </article>
     );
   }

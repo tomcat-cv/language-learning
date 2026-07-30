@@ -16,6 +16,7 @@ type ProgressContextValue = {
   error: string;
   loading: boolean;
   declareMastery: (knowledgePointId: string) => Promise<void>;
+  completeLearning: (knowledgePointId: string) => Promise<void>;
   reload: () => Promise<void>;
 };
 
@@ -104,9 +105,35 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     setError("");
   }, []);
 
+  const completeLearning = useCallback(async (knowledgePointId: string) => {
+    const response = await fetch("/api/progress/learning", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ knowledgePointId }),
+    });
+    const data = await readJson(response);
+    if (!response.ok || !data.state) {
+      throw new Error(data.error ?? "暂时无法保存重新学习状态。");
+    }
+    setStates((current) => [
+      ...current.filter(
+        (state) => state.knowledgePointId !== data.state?.knowledgePointId,
+      ),
+      data.state as ProgressState,
+    ]);
+    setError("");
+  }, []);
+
   const value = useMemo(
-    () => ({ states, error, loading, declareMastery, reload }),
-    [states, error, loading, declareMastery, reload],
+    () => ({
+      states,
+      error,
+      loading,
+      declareMastery,
+      completeLearning,
+      reload,
+    }),
+    [states, error, loading, declareMastery, completeLearning, reload],
   );
 
   return (

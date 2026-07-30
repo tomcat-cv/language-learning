@@ -1,0 +1,21 @@
+[Unit]
+Description=Hibi personal Japanese learning app
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=hibi
+Group=hibi
+WorkingDirectory=/opt/hibi/current
+Environment=NODE_ENV=production
+EnvironmentFile=/etc/hibi/hibi.env
+ExecStart=/usr/bin/npm start -- --hostname 127.0.0.1 --port 3000
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

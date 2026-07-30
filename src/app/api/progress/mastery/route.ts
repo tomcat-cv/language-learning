@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { enforcePersonalAccess } from "@/lib/access";
 import { declareMastery } from "@/lib/progress-service";
 import { progressErrorResponse } from "@/lib/api-response";
 
 export async function POST(request: Request) {
+  const denied = enforcePersonalAccess(request);
+  if (denied) return denied;
+
   try {
     const body = (await request.json()) as { knowledgePointId?: unknown };
     if (

@@ -1,0 +1,19 @@
+[Unit]
+Description=Back up Hibi PostgreSQL database
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=admin
+Group=admin
+WorkingDirectory=/home/admin/project/language-learning
+EnvironmentFile=/home/admin/project/language-learning/.env.local
+Environment=HIBI_BACKUP_DIR=/var/backups/hibi
+Environment=HIBI_BACKUP_RETENTION_DAYS=14
+ExecStart=/home/admin/project/language-learning/scripts/backup-database.sh
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=full
+ReadWritePaths=/var/backups/hibi

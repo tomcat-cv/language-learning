@@ -32,3 +32,13 @@ export function getDatabase() {
 
   return drizzle({ client: pool, schema });
 }
+
+export async function closeDatabase() {
+  const pool = globalForDatabase.hibiPostgresPool;
+  if (!pool) {
+    return;
+  }
+
+  delete globalForDatabase.hibiPostgresPool;
+  await pool.end();
+}
