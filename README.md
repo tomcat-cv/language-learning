@@ -72,6 +72,14 @@ npm start -- --hostname 127.0.0.1 --port 3000
 
 仓库提供 [systemd 服务模板](deploy/hibi.service) 和 [Caddy 配置示例](deploy/Caddyfile.example)。复制前应按实际用户、目录和域名修改。反向代理成功签发 HTTPS 证书后，再从手机或其他设备访问；不要在明文 HTTP 页面中输入 API Key。
 
+服务仅监听 `127.0.0.1` 且尚未配置 HTTPS 时，可以从自己的电脑建立 SSH 隧道：
+
+```bash
+ssh -L 3000:127.0.0.1:3000 user@server-address
+```
+
+保持该连接打开，然后访问 <http://127.0.0.1:3000>。这种方式无需对外开放应用端口；仍应使用应用访问口令。
+
 ### 备份与恢复
 
 至少每天使用 `pg_dump --format=custom` 备份数据库，并将备份复制到服务器之外。示例：

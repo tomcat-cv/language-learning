@@ -565,7 +565,7 @@ src/
 | 模型配置 | localStorage 保存设置和密钥 | 只适合可信个人设备与受保护实例；无服务端加密密钥和费用控制 |
 | PWA | 有 manifest | 没有正式图标、Service Worker、离线缓存和推送 |
 | 响应式 UI | 桌面侧栏、移动端底部导航和 CSS 断点代码已存在；桌面 Chrome 与 Pixel 7 视口核心流程自动测试通过 | 仍需真实手机和不同浏览器人工检查 |
-| 个人部署 | 当前 Ubuntu 主机已部署 PostgreSQL 16.14，迁移、API 持久化、备份恢复和每日 timer 已验证 | 尚未完成域名、HTTPS 和手机实机端到端验收 |
+| 个人部署 | 当前 Ubuntu 主机已部署 PostgreSQL 16.14；应用 systemd 服务已启用并仅监听 `127.0.0.1:3000`；迁移、API 持久化、备份恢复和每日 timer 已验证 | 当前通过 SSH 隧道访问；尚未完成域名、HTTPS 和手机实机端到端验收 |
 | Git | `main` 已跟踪 `origin/main` | 本轮改动尚未提交或推送 |
 
 ### 15.3 未实现
@@ -751,6 +751,7 @@ src/
 - `PLAYWRIGHT_BROWSERS_PATH=/tmp/hibi-playwright npm run test:e2e`：通过；桌面 Chrome 与 Pixel 7 视口共 6 项测试，新增普通首次学习和今日计划推进路径。
 - `npm run build`：通过，包含每日计划、首次学习 API 和单词学习页。
 - 增量迁移 `0001_closed_spectrum.sql` 已应用到 `.env.local` 数据库；新增计划表的结构与事务写入验证通过，验证数据已回滚。
+- `hibi.service` 已安装、启用并启动；生产构建仅监听 `127.0.0.1:3000`，无口令首页返回 401，正确口令首页与进度 API 均返回 200。
 - 真实手机、域名 HTTPS 和真实模型调用：按当前优先级后置，未验证。
 
 2026-07-30：
