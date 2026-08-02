@@ -30,6 +30,24 @@ export function progressErrorResponse(error: unknown) {
     );
   }
 
+  if (error instanceof Error && error.message === "STUDY_TASK_NOT_AVAILABLE") {
+    return NextResponse.json(
+      { error: "这项学习任务已完成或当前不可用。" },
+      { status: 409 },
+    );
+  }
+
+  if (error instanceof Error && error.message === "PRIORITY_TASKS_PENDING") {
+    return NextResponse.json(
+      { error: "请先完成今日计划中的到期复习或补学。" },
+      { status: 409 },
+    );
+  }
+
+  if (error instanceof Error && error.message === "STUDY_PLAN_NOT_FOUND") {
+    return NextResponse.json({ error: "未找到今日计划。" }, { status: 404 });
+  }
+
   return NextResponse.json(
     { error: "学习进度服务暂时不可用，请稍后重试。" },
     { status: 500 },

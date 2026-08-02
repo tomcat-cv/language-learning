@@ -8,6 +8,13 @@
       "when": 1785239659476,
       "tag": "0000_lean_amazoness",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785654214085,
+      "tag": "0001_closed_spectrum",
+      "breakpoints": true
     }
   ]
 }

@@ -1,31 +1,205 @@
 "use client";
-import Link from "next/link";
-import { useEffect,useState } from "react";
-import { defaultSettings,loadSettings,type UserSettings } from "@/lib/storage";
-import { useKnowledgeProgress } from "./ProgressProvider";
 
-export function TodayDashboard(){
-  const [settings,setSettings]=useState<UserSettings>(defaultSettings);
-  const {states}=useKnowledgeProgress();
-  useEffect(()=>{const timer=window.setTimeout(()=>setSettings(loadSettings()),0);return()=>window.clearTimeout(timer)},[]);
-  const dueCount=states.filter(state=>state.stage!=="learning"&&new Date(state.dueAt)<=new Date()).length;
-  const learningStates=states.filter(state=>state.stage==="learning");
-  const learningCount=learningStates.length;
-  const relearningPath=learningStates.some(state=>state.knowledgePointId.startsWith("v-"))?"/vocabulary":"/grammar";
-  const tasks=[
-    {index:"01",title:"复习与补学",detail:learningCount>0?`${learningCount} 项需要重新学习`:"先巩固，再继续向前",count:dueCount+learningCount,href:learningCount>0?relearningPath:"/review"},
-    {index:"02",title:"新文法",detail:`今日计划 ${settings.dailyGrammar} 个`,count:settings.dailyGrammar,href:"/grammar/study"},
-    {index:"03",title:"新单词",detail:`今日计划 ${settings.dailyVocabulary} 个`,count:settings.dailyVocabulary,href:"/vocabulary"},
-    {index:"04",title:"综合听读",detail:"一段便利店里的对话",count:1,href:"/review"},
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import type { DailyPlan, DailyPlanTask } from "@/lib/progress-service";
+import { ensureDailyPlan } from "@/lib/study-plan-client";
+import { defaultSettings, loadSettings, type UserSettings } from "@/lib/storage";
+
+function taskHref(task: DailyPlanTask | undefined) {
+  if (!task) return "/grammar/study";
+  if (task.taskType === "review") return "/review";
+  if (task.taskType === "relearning") {
+    return task.kind === "grammar" ? "/grammar" : "/vocabulary";
+  }
+  return task.kind === "grammar" ? "/grammar/study" : "/vocabulary/study";
+}
+
+export function TodayDashboard() {
+  const [settings, setSettings] = useState<UserSettings>(defaultSettings);
+  const [plan, setPlan] = useState<DailyPlan | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadPlan = useCallback(async () => {
+    setLoading(true);
+    const currentSettings = loadSettings();
+    setSettings(currentSettings);
+    try {
+      setPlan(await ensureDailyPlan(currentSettings));
+      setError("");
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "暂时无法生成今日计划。",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const currentSettings = loadSettings();
+      try {
+        const nextPlan = await ensureDailyPlan(currentSettings);
+        if (active) {
+          setSettings(currentSettings);
+          setPlan(nextPlan);
+          setError("");
+        }
+      } catch (caught) {
+        if (active) {
+          setSettings(currentSettings);
+          setError(
+            caught instanceof Error ? caught.message : "暂时无法生成今日计划。",
+          );
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="page-container">
+        <article className="card empty-state">
+          <div className="big">日</div>
+          <h2>正在安排今日路径…</h2>
+        </article>
+      </div>
+    );
+  }
+
+  if (error || !plan) {
+    return (
+      <div className="page-container">
+        <header className="page-header">
+          <div>
+            <div className="page-eyebrow">TODAY · {settings.targetLevel}</div>
+            <h1 className="page-title">今天，也向前一点。</h1>
+          </div>
+        </header>
+        <article className="card empty-state">
+          <div className="big">!</div>
+          <h2>今日计划暂时不可用</h2>
+          <p>{error}</p>
+          <button className="secondary-button" type="button" onClick={() => void loadPlan()}>
+            重试
+          </button>
+        </article>
+      </div>
+    );
+  }
+
+  const pending = plan.tasks.filter((task) => task.status === "pending");
+  const priority = pending.filter((task) => task.taskType !== "new");
+  const newGrammar = plan.tasks.filter(
+    (task) => task.taskType === "new" && task.kind === "grammar",
+  );
+  const newVocabulary = plan.tasks.filter(
+    (task) => task.taskType === "new" && task.kind === "vocabulary",
+  );
+  const first = priority[0] ?? pending[0];
+  const total = plan.tasks.length;
+  const percent = total === 0 ? 100 : Math.round((plan.completedCount / total) * 100);
+  const summary = [
+    {
+      index: "01",
+      title: "复习与补学",
+      detail: priority.length > 0 ? "旧知识优先处理" : "当前没有积压",
+      count: plan.tasks.filter((task) => task.taskType !== "new").length,
+      completed: plan.tasks.filter(
+        (task) => task.taskType !== "new" && task.status === "completed",
+      ).length,
+      href: taskHref(priority[0]),
+    },
+    {
+      index: "02",
+      title: "新文法",
+      detail: `上限 ${settings.dailyGrammar} 个，按预算实际安排`,
+      count: newGrammar.length,
+      completed: newGrammar.filter((task) => task.status === "completed").length,
+      href: "/grammar/study",
+    },
+    {
+      index: "03",
+      title: "新单词",
+      detail: `上限 ${settings.dailyVocabulary} 个，按预算实际安排`,
+      count: newVocabulary.length,
+      completed: newVocabulary.filter((task) => task.status === "completed").length,
+      href: "/vocabulary/study",
+    },
   ];
-  return <div className="page-container">
-    <header className="page-header"><div><div className="page-eyebrow">Tuesday · N5 Sprint</div><h1 className="page-title">今天，也向前一点。</h1><p className="page-lead">复习优先 · 预计 {settings.dailyMinutes} 分钟 · 当前冲刺 {settings.targetLevel}</p></div><span className="pill">火种 1 天　·　累计 0 分钟</span></header>
-    <section className="hero-grid">
-      <article className="card focus-card"><div className="focus-top"><span className="focus-label">TODAY&apos;S FIRST STEP</span><span className="pill">{learningCount>0?`${learningCount} 项待补学`:`${dueCount} 项到期`}</span></div><h2>{learningCount>0?"先补上未通过的内容":dueCount>0?"从到期复习开始":settings.kanaSkipped?"开始今天的新内容":"先认识日语的声音"}</h2><p>{learningCount>0?"重新看一遍解释和例句，确认完成后，系统会安排明日短测。":dueCount>0?"系统会先验证已经到期的内容，再安排今天的新知识。":settings.kanaSkipped?"今天没有到期项目，可以学习新文法或单词。":"用五分钟认识第一行平假名。每个假名都可以点击听音，你也可以在设置中跳过入门。"}</p><div className="focus-actions"><Link className="primary-button" href={learningCount>0?relearningPath:dueCount>0?"/review":settings.kanaSkipped?"/grammar":"/kana"}>开始今日学习 <span>→</span></Link><Link className="secondary-button" href="/settings">调整计划</Link></div></article>
-      <article className="card progress-card"><span className="page-eyebrow">今日完成度</span><div className="progress-ring"><span>0<small>%</small></span></div><div className="progress-meta"><div><b>0 / 73</b><small>今日任务</small></div><div><b>{settings.dailyMinutes} min</b><small>目标时间</small></div></div></article>
-    </section>
-    <div className="section-head"><div><h2>今日路径</h2><p>会根据复习积压自动调整新内容</p></div><span className="pill">预计 {settings.dailyMinutes} 分钟</span></div>
-    <section className="task-list">{tasks.map(task=><Link href={task.href} className="card task-card" key={task.index}><span className="task-index">{task.index} / 04</span><h3>{task.title}　{task.count}</h3><p>{task.detail}</p><div className="mini-progress"><span style={{width:"0%"}}/></div></Link>)}</section>
-    <article className="card quote-card"><span className="quote-mark">「</span><p>毎日の小さな一歩が、いつか大きな力になる。</p><small>每天的一小步，终会成为强大的力量。</small></article>
-  </div>;
+
+  return (
+    <div className="page-container">
+      <header className="page-header">
+        <div>
+          <div className="page-eyebrow">{plan.planDate} · {settings.targetLevel}</div>
+          <h1 className="page-title">今天，也向前一点。</h1>
+          <p className="page-lead">
+            复习优先 · 预计 {plan.estimatedMinutes} 分钟 · 时间预算 {plan.dailyMinutes} 分钟
+          </p>
+        </div>
+        <span className="pill">今日完成 {plan.completedCount} / {total}</span>
+      </header>
+      <section className="hero-grid">
+        <article className="card focus-card">
+          <div className="focus-top">
+            <span className="focus-label">TODAY&apos;S FIRST STEP</span>
+            <span className="pill">{pending.length} 项待完成</span>
+          </div>
+          <h2>{first ? (first.taskType === "review" ? "先从到期复习开始" : first.taskType === "relearning" ? "先补上未通过的内容" : `学习「${first.item.kind === "grammar" ? first.item.pattern : first.item.word}」`) : "今天的计划已完成"}</h2>
+          <p>
+            {first
+              ? "计划会保存完成状态；刷新页面或重启服务后，可以从未完成任务继续。"
+              : "今天安排的任务已经全部完成，到期内容会自动回到后续复习队列。"}
+          </p>
+          <div className="focus-actions">
+            <Link className="primary-button" href={first ? taskHref(first) : "/review"}>
+              {first ? "继续今日学习" : "查看复习安排"} <span>→</span>
+            </Link>
+            <Link className="secondary-button" href="/settings">调整计划</Link>
+          </div>
+        </article>
+        <article className="card progress-card">
+          <span className="page-eyebrow">今日完成度</span>
+          <div className="progress-ring" style={{ "--progress": percent } as React.CSSProperties}>
+            <span>{percent}<small>%</small></span>
+          </div>
+          <div className="progress-meta">
+            <div><b>{plan.completedCount} / {total}</b><small>今日任务</small></div>
+            <div><b>{plan.estimatedMinutes} min</b><small>预计用时</small></div>
+          </div>
+        </article>
+      </section>
+      <div className="section-head">
+        <div><h2>今日路径</h2><p>到期复习优先，剩余时间交替安排新文法和单词</p></div>
+        <span className="pill">日期计划已保存</span>
+      </div>
+      <section className="task-list">
+        {summary.map((task) => {
+          const taskPercent = task.count === 0 ? 100 : Math.round((task.completed / task.count) * 100);
+          return (
+            <Link href={task.href} className="card task-card" key={task.index}>
+              <span className="task-index">{task.index} / 03</span>
+              <h3>{task.title}　{task.completed} / {task.count}</h3>
+              <p>{task.detail}</p>
+              <div className="mini-progress"><span style={{ width: `${taskPercent}%` }} /></div>
+            </Link>
+          );
+        })}
+      </section>
+      <article className="card quote-card">
+        <span className="quote-mark">「</span>
+        <p>毎日の小さな一歩が、いつか大きな力になる。</p>
+        <small>每天的一小步，终会成为强大的力量。</small>
+      </article>
+    </div>
+  );
 }

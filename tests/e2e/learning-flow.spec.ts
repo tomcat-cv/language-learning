@@ -64,3 +64,32 @@ test("primary navigation and content fit the current viewport", async ({
   );
   expect(overflows).toBe(false);
 });
+
+test("initial learning is persisted and advances the daily plan", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByText("日期计划已保存")).toBeVisible();
+  await page.getByRole("link", { name: "继续今日学习" }).click();
+  await expect(
+    page.getByRole("heading", { name: "～は～です", exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "……不是……" }).click();
+  await expect(page.getByText("还不对", { exact: false })).toBeVisible();
+
+  const [studyResponse] = await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/progress/study") &&
+        response.request().method() === "POST" &&
+        response.ok(),
+    ),
+    page.getByRole("button", { name: "……是……", exact: true }).click(),
+  ]);
+  expect(studyResponse.ok(), await studyResponse.text()).toBe(true);
+  await expect(page.getByText("已完成学习并安排明日复习", { exact: false })).toBeVisible();
+
+  await page.goto("/");
+  await expect(page.getByText("今日完成 1 /", { exact: false })).toBeVisible();
+});

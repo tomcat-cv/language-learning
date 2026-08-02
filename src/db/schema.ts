@@ -8,6 +8,7 @@ import {
   serial,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import type { ReviewSchedule, ReviewStage } from "@/domain/review";
 
@@ -93,6 +94,55 @@ export const attempts = pgTable(
       table.userId,
       table.knowledgePointId,
     ),
+  ],
+);
+
+export const studyPlans = pgTable(
+  "study_plans",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    planDate: text("plan_date").notNull(),
+    timezoneOffset: integer("timezone_offset").notNull(),
+    dailyMinutes: integer("daily_minutes").notNull(),
+    grammarLimit: integer("grammar_limit").notNull(),
+    vocabularyLimit: integer("vocabulary_limit").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("study_plans_user_date_idx").on(table.userId, table.planDate),
+  ],
+);
+
+export const studyPlanItems = pgTable(
+  "study_plan_items",
+  {
+    id: serial("id").primaryKey(),
+    planId: integer("plan_id")
+      .notNull()
+      .references(() => studyPlans.id),
+    knowledgePointId: text("knowledge_point_id")
+      .notNull()
+      .references(() => knowledgePoints.id),
+    taskType: text("task_type")
+      .notNull()
+      .$type<"review" | "relearning" | "new">(),
+    kind: text("kind").notNull().$type<"grammar" | "vocabulary">(),
+    position: integer("position").notNull(),
+    estimatedMinutes: integer("estimated_minutes").notNull(),
+    status: text("status").notNull().$type<"pending" | "completed">(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("study_plan_items_plan_knowledge_idx").on(
+      table.planId,
+      table.knowledgePointId,
+    ),
+    index("study_plan_items_plan_status_idx").on(table.planId, table.status),
   ],
 );
 

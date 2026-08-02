@@ -15,6 +15,8 @@ const requiredTables = [
   "review_states",
   "attempts",
   "review_logs",
+  "study_plans",
+  "study_plan_items",
 ];
 const verificationId = `__hibi_verify_${process.pid}`;
 const client = new Client({ connectionString });
@@ -61,6 +63,19 @@ try {
     `insert into attempts
        (user_id, knowledge_point_id, exercise_type, answer, correct)
      values ($1, $1, 'deployment_check', 'ok', true)`,
+    [verificationId],
+  );
+  await client.query(
+    `insert into study_plans
+       (user_id, plan_date, timezone_offset, daily_minutes, grammar_limit, vocabulary_limit)
+     values ($1, '2099-01-01', -480, 30, 10, 50)`,
+    [verificationId],
+  );
+  await client.query(
+    `insert into study_plan_items
+       (plan_id, knowledge_point_id, task_type, kind, position, estimated_minutes, status)
+     select id, $1, 'new', 'grammar', 0, 4, 'pending'
+       from study_plans where user_id = $1`,
     [verificationId],
   );
   await client.query(

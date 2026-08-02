@@ -1,9 +1,11 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { Client } from "pg";
 
 const TABLES = [
   "attempts",
+  "study_plan_items",
+  "study_plans",
   "review_logs",
   "mastery_declarations",
   "review_states",
@@ -40,23 +42,23 @@ export async function createTestDatabase(
     await admin.end();
   }
 
-  const migrationPath = path.join(
-    process.cwd(),
-    "drizzle",
-    "0000_lean_amazoness.sql",
-  );
-  const migration = (await readFile(migrationPath, "utf8")).replaceAll(
-    '"public".',
-    `"${schemaName}".`,
-  );
+  const migrationDirectory = path.join(process.cwd(), "drizzle");
+  const migrationFiles = (await readdir(migrationDirectory))
+    .filter((file) => file.endsWith(".sql"))
+    .sort();
   const client = new Client({
     connectionString: testDatabaseUrl(connectionString, schemaName),
   });
   await client.connect();
   try {
-    for (const statement of migration.split("--> statement-breakpoint")) {
-      if (statement.trim()) {
-        await client.query(statement);
+    for (const migrationFile of migrationFiles) {
+      const migration = (
+        await readFile(path.join(migrationDirectory, migrationFile), "utf8")
+      ).replaceAll('"public".', `"${schemaName}".`);
+      for (const statement of migration.split("--> statement-breakpoint")) {
+        if (statement.trim()) {
+          await client.query(statement);
+        }
       }
     }
   } catch (error) {
