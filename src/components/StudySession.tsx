@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { DailyPlan } from "@/lib/progress-service";
 import { ensureDailyPlan } from "@/lib/study-plan-client";
 import { loadSettings } from "@/lib/storage";
+import { MasteryButton } from "./MasteryButton";
 import { useKnowledgeProgress } from "./ProgressProvider";
 import { SpeechButton } from "./SpeechButton";
 
@@ -244,6 +245,16 @@ export function StudySession({ kind }: { kind: StudyKind }) {
               {aiFeedback && <div className="feedback">{aiFeedback}</div>}
             </div>
           )}
+          <div className="study-mastery">
+            <div>
+              <h3>已经熟悉这个知识点？</h3>
+              <p>跳过首次教学，明日通过一个简短测验验证掌握情况。</p>
+            </div>
+            <MasteryButton
+              knowledgePointId={item.id}
+              onMasteryDeclared={loadPlan}
+            />
+          </div>
           <div className="study-question">
             <h3>{current.question.prompt}</h3>
             <div className="review-options">

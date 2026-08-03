@@ -5,8 +5,10 @@ import { useKnowledgeProgress } from "./ProgressProvider";
 
 export function MasteryButton({
   knowledgePointId,
+  onMasteryDeclared,
 }: {
   knowledgePointId: string;
+  onMasteryDeclared?: () => void | Promise<void>;
 }) {
   const {
     states,
@@ -26,6 +28,7 @@ export function MasteryButton({
     setError("");
     try {
       await declareMastery(knowledgePointId);
+      await onMasteryDeclared?.();
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "暂时无法保存掌握状态。",

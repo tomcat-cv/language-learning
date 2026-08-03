@@ -93,3 +93,43 @@ test("initial learning is persisted and advances the daily plan", async ({
   await page.goto("/");
   await expect(page.getByText("今日完成 1 /", { exact: false })).toBeVisible();
 });
+
+for (const scenario of [
+  {
+    label: "grammar",
+    path: "/grammar/study",
+    currentTitle: "～は～です",
+    nextTitle: "～ではありません",
+  },
+  {
+    label: "vocabulary",
+    path: "/vocabulary/study",
+    currentTitle: "私",
+    nextTitle: "学生",
+  },
+] as const) {
+  test(`self-declared mastery advances the ${scenario.label} study session`, async ({
+    page,
+  }) => {
+    await page.goto(scenario.path);
+    await expect(
+      page.getByRole("heading", { name: scenario.currentTitle, exact: true }),
+    ).toBeVisible();
+
+    const [masteryResponse] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/progress/mastery") &&
+          response.request().method() === "POST",
+      ),
+      page
+        .getByRole("button", { name: "我已掌握，跳过学习" })
+        .click(),
+    ]);
+
+    expect(masteryResponse.ok(), await masteryResponse.text()).toBe(true);
+    await expect(
+      page.getByRole("heading", { name: scenario.nextTitle, exact: true }),
+    ).toBeVisible();
+  });
+}
