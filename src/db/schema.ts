@@ -19,6 +19,192 @@ export const users = pgTable("users", {
     .defaultNow(),
 });
 
+export type ContentImportStatus = "running" | "completed" | "failed";
+
+export type JmdictPayload = {
+  sequence: string;
+  kanji: Array<{ text: string; info: string[]; priority: string[] }>;
+  readings: Array<{
+    text: string;
+    noKanji: boolean;
+    restrictions: string[];
+    info: string[];
+    priority: string[];
+  }>;
+  senses: Array<{
+    restrictedKanji: string[];
+    restrictedReadings: string[];
+    partsOfSpeech: string[];
+    crossReferences: string[];
+    antonyms: string[];
+    fields: string[];
+    misc: string[];
+    dialects: string[];
+    information: string[];
+    glosses: Array<{ language: string; type: string | null; text: string }>;
+  }>;
+};
+
+export type KanjidicPayload = {
+  literal: string;
+  codepoints: Array<{ type: string | null; value: string }>;
+  radicals: Array<{ type: string | null; value: string }>;
+  misc: {
+    grade: number | null;
+    strokeCounts: number[];
+    variants: Array<{ type: string | null; value: string }>;
+    frequency: number | null;
+    radicalNames: string[];
+    jlptLegacy: number | null;
+  };
+  dictionaryReferences: Array<{
+    type: string | null;
+    volume: string | null;
+    page: string | null;
+    value: string;
+  }>;
+  queryCodes: Array<{
+    type: string | null;
+    skipMisclassification: string | null;
+    value: string;
+  }>;
+  readingMeaningGroups: Array<{
+    readings: Array<{
+      type: string | null;
+      status: string | null;
+      restrictions: string[];
+      value: string;
+    }>;
+    meanings: Array<{ language: string; value: string }>;
+    additionalTypes: string[];
+  }>;
+  nanori: string[];
+};
+
+export const contentSources = pgTable("content_sources", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  homepageUrl: text("homepage_url").notNull(),
+  downloadUrl: text("download_url").notNull(),
+  licenseName: text("license_name").notNull(),
+  licenseUrl: text("license_url").notNull(),
+  attributionText: text("attribution_text").notNull(),
+  updateFrequency: text("update_frequency").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const contentImports = pgTable(
+  "content_imports",
+  {
+    id: serial("id").primaryKey(),
+    sourceId: text("source_id")
+      .notNull()
+      .references(() => contentSources.id),
+    sourceVersion: text("source_version").notNull(),
+    sourceUrl: text("source_url").notNull(),
+    checksumSha256: text("checksum_sha256").notNull(),
+    status: text("status").notNull().$type<ContentImportStatus>(),
+    recordCount: integer("record_count").notNull().default(0),
+    errorSummary: text("error_summary"),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (table) => [index("content_imports_source_started_idx").on(table.sourceId, table.startedAt)],
+);
+
+export const dictionaryEntries = pgTable(
+  "dictionary_entries",
+  {
+    id: text("id").primaryKey(),
+    sourceId: text("source_id")
+      .notNull()
+      .references(() => contentSources.id),
+    sourceEntryId: text("source_entry_id").notNull(),
+    primaryKanji: text("primary_kanji"),
+    primaryReading: text("primary_reading").notNull(),
+    isCommon: boolean("is_common").notNull().default(false),
+    active: boolean("active").notNull().default(true),
+    payload: jsonb("payload").notNull().$type<JmdictPayload>(),
+    lastImportId: integer("last_import_id")
+      .notNull()
+      .references(() => contentImports.id),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("dictionary_entries_source_entry_idx").on(
+      table.sourceId,
+      table.sourceEntryId,
+    ),
+    index("dictionary_entries_primary_kanji_idx").on(table.primaryKanji),
+    index("dictionary_entries_primary_reading_idx").on(table.primaryReading),
+  ],
+);
+
+export const kanjiEntries = pgTable(
+  "kanji_entries",
+  {
+    literal: text("literal").primaryKey(),
+    sourceId: text("source_id")
+      .notNull()
+      .references(() => contentSources.id),
+    strokeCount: integer("stroke_count"),
+    grade: integer("grade"),
+    frequency: integer("frequency"),
+    jlptLegacy: integer("jlpt_legacy"),
+    active: boolean("active").notNull().default(true),
+    payload: jsonb("payload").notNull().$type<KanjidicPayload>(),
+    lastImportId: integer("last_import_id")
+      .notNull()
+      .references(() => contentImports.id),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("kanji_entries_grade_idx").on(table.grade),
+    index("kanji_entries_frequency_idx").on(table.frequency),
+  ],
+);
+
+export const curriculumMappings = pgTable(
+  "curriculum_mappings",
+  {
+    id: serial("id").primaryKey(),
+    curriculumVersion: text("curriculum_version").notNull(),
+    level: text("level").notNull().$type<"N5" | "N4" | "N3" | "N2" | "N1">(),
+    kind: text("kind").notNull().$type<"vocabulary" | "kanji">(),
+    dictionaryEntryId: text("dictionary_entry_id").references(
+      () => dictionaryEntries.id,
+    ),
+    kanjiLiteral: text("kanji_literal").references(() => kanjiEntries.literal),
+    rationale: text("rationale").notNull(),
+    reviewStatus: text("review_status")
+      .notNull()
+      .$type<"draft" | "reviewed" | "published">()
+      .default("draft"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("curriculum_mappings_level_kind_idx").on(table.level, table.kind),
+    uniqueIndex("curriculum_mappings_dictionary_version_idx").on(
+      table.curriculumVersion,
+      table.dictionaryEntryId,
+    ),
+    uniqueIndex("curriculum_mappings_kanji_version_idx").on(
+      table.curriculumVersion,
+      table.kanjiLiteral,
+    ),
+  ],
+);
+
 export const knowledgePoints = pgTable("knowledge_points", {
   id: text("id").primaryKey(),
   kind: text("kind").notNull().$type<"grammar" | "vocabulary">(),

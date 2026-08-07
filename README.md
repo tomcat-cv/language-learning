@@ -29,12 +29,26 @@ cp .env.example .env.local
 # 修改 .env.local 中的 DATABASE_URL
 npm run db:migrate
 npm run db:verify
+npm run content:download
+npm run content:import
 npm run dev
 ```
 
 打开 <http://localhost:3000>。
 
 如果只想浏览界面，可以暂不配置数据库；进度和复习功能会明确显示为不可用。本地开发模式不要求个人访问口令。
+
+`content:download` 从 EDRDG 官方 HTTPS 地址下载 JMdict 与 KANJIDIC2，并将压缩
+快照与 SHA-256 元数据放入 Git 忽略的 `.cache/hibi-content`。`content:import`
+校验文件后批量、幂等地导入 PostgreSQL。后续需要更新两份快照时运行：
+
+```bash
+npm run content:sync
+```
+
+JMdict/KANJIDIC2 提供词典和汉字事实，并不提供当前 JLPT 的官方完整 N5–N1
+清单。应用把词典事实与“日々课程分级”分开保存；尚未审核发布的分级候选不会直接
+进入学习计划。
 
 ## 个人服务器部署
 
@@ -146,6 +160,9 @@ API Key 当前保存在该站点的浏览器 localStorage 中。提交造句或�
 | `npm start` | 启动构建后的服务 |
 | `npm run db:migrate` | 执行 PostgreSQL 迁移 |
 | `npm run db:verify` | 验证数据库结构和事务写入 |
+| `npm run content:download` | 下载并校验 JMdict/KANJIDIC2 快照 |
+| `npm run content:import` | 将本地快照幂等导入 PostgreSQL |
+| `npm run content:sync` | 下载并导入两份最新官方快照 |
 
 首次运行浏览器测试前需要安装 Chromium 及其系统依赖：
 
@@ -154,3 +171,13 @@ npx playwright install --with-deps chromium
 ```
 
 集成测试和浏览器测试会创建并删除独立的临时 PostgreSQL schema，不会清空当前用户的学习数据。
+
+## 内容来源与许可
+
+- JMdict：日语词条、读音、词性和多语言释义候选。
+- KANJIDIC2：汉字、读音、含义、笔画及相关检索信息。
+
+两份文件均由 Electronic Dictionary Research and Development Group（EDRDG）维护，
+按 Creative Commons Attribution-ShareAlike 4.0 International 使用。应用在“我的”
+页面展示当前导入版本、记录数、项目主页、许可和必要署名。分发重要摘录或衍生词表
+时仍需遵守 EDRDG 的完整许可条件和定期更新要求。

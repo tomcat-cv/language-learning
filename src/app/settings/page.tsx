@@ -1,6 +1,7 @@
 "use client";
 import { useEffect,useState } from "react";
 import { defaultSettings,loadSettings,saveSettings,type UserSettings } from "@/lib/storage";
+import { ContentSourceStatus } from "@/components/ContentSourceStatus";
 
 const providerNames={openai:"OpenAI",anthropic:"Anthropic",gemini:"Google Gemini",compatible:"OpenAI 兼容接口"};
 export default function SettingsPage(){
@@ -29,6 +30,12 @@ export default function SettingsPage(){
         <div className="field"><label>API Key</label><input type="password" autoComplete="off" value={form.apiKey} onChange={e=>patch("apiKey",e.target.value)} placeholder="不会提交到 Git"/></div>
         <div className="save-bar"><span className="save-status">{testing||saved&&"已保存到当前浏览器"}</span><button className="secondary-button" onClick={test}>测试连接</button><button className="primary-button" onClick={save}>保存设置</button></div>
       </article>
+    </section>
+    <section className="card settings-card content-source-card">
+      <div className="page-eyebrow">Content · Sources</div>
+      <h2>内容来源与许可</h2>
+      <p>词典事实与日々课程分级分开保存；JLPT 等级是项目课程判断，不是官方完整清单。</p>
+      <ContentSourceStatus />
     </section>
   </div>;
 }

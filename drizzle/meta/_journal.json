@@ -15,6 +15,20 @@
       "when": 1785654214085,
       "tag": "0001_closed_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785753778952,
+      "tag": "0002_misty_red_ghost",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785753875167,
+      "tag": "0003_complex_war_machine",
+      "breakpoints": true
     }
   ]
 }

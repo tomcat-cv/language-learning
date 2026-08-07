@@ -3,6 +3,11 @@ import path from "node:path";
 import { Client } from "pg";
 
 const TABLES = [
+  "curriculum_mappings",
+  "dictionary_entries",
+  "kanji_entries",
+  "content_imports",
+  "content_sources",
   "attempts",
   "study_plan_items",
   "study_plans",

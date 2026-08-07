@@ -1,4 +1,8 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { gzipSync } from "node:zlib";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import {
@@ -46,6 +50,93 @@ describe("progress API with PostgreSQL", () => {
   beforeEach(async () => {
     if (!process.env.DATABASE_URL) return;
     await resetTestDatabase(process.env.DATABASE_URL);
+  });
+
+  it("imports a checksummed JMdict snapshot idempotently", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "hibi-content-test-"));
+    const source = {
+      id: "edrdg-jmdict-test",
+      name: "JMdict test fixture",
+      homepageUrl: "https://example.invalid/jmdict",
+      downloadUrl: "https://example.invalid/JMdict.gz",
+      fileName: "JMdict.gz",
+      recordTag: "entry",
+      licenseName: "CC BY-SA 4.0",
+      licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+      attributionText: "JMdict test attribution",
+      updateFrequency: "monthly",
+    };
+    const fixture = gzipSync(`<?xml version="1.0"?>
+      <!DOCTYPE JMdict [<!ENTITY n "noun (common) (futsuumeishi)">]>
+      <JMdict><entry><ent_seq>1000010</ent_seq>
+      <k_ele><keb>明日</keb><ke_pri>ichi1</ke_pri></k_ele>
+      <r_ele><reb>あした</reb><re_pri>ichi1</re_pri></r_ele>
+      <sense><pos>&n;</pos><gloss>tomorrow</gloss></sense>
+      </entry></JMdict>`);
+    const checksumSha256 = createHash("sha256").update(fixture).digest("hex");
+    await writeFile(path.join(directory, source.fileName), fixture);
+    await writeFile(
+      path.join(directory, `${source.fileName}.metadata.json`),
+      JSON.stringify({
+        sourceId: source.id,
+        sourceUrl: source.downloadUrl,
+        downloadedAt: "2026-08-03T00:00:00.000Z",
+        etag: null,
+        lastModified: "Sun, 03 Aug 2026 00:00:00 GMT",
+        contentLength: String(fixture.length),
+        checksumSha256,
+      }),
+    );
+
+    try {
+      const { importSource } = await import("../../scripts/content-sync.mjs");
+      await importSource("jmdict", source, directory, 1);
+      await importSource("jmdict", source, directory, 1);
+
+      const client = new Client({ connectionString: process.env.DATABASE_URL });
+      await client.connect();
+      const entries = await client.query(
+        `select primary_kanji, primary_reading, payload
+           from dictionary_entries where source_id = $1`,
+        [source.id],
+      );
+      const imports = await client.query(
+        `select status, record_count from content_imports
+          where source_id = $1 order by id`,
+        [source.id],
+      );
+      await client.end();
+
+      expect(entries.rows).toHaveLength(1);
+      expect(entries.rows[0]).toMatchObject({
+        primary_kanji: "明日",
+        primary_reading: "あした",
+      });
+      expect(entries.rows[0].payload.senses[0].partsOfSpeech).toEqual([
+        "noun (common) (futsuumeishi)",
+      ]);
+      expect(imports.rows).toEqual([
+        { status: "completed", record_count: 1 },
+        { status: "completed", record_count: 1 },
+      ]);
+
+      const sourceRoute = await import("@/app/api/content/sources/route");
+      const response = await sourceRoute.GET(
+        new Request("http://hibi.test/api/content/sources"),
+      );
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        sources: [
+          {
+            id: source.id,
+            licenseName: source.licenseName,
+            latestImport: { status: "completed", recordCount: 1 },
+          },
+        ],
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   it("persists pass, fail, relearning, attempts, and review logs", async () => {

@@ -14,6 +14,7 @@
 /coverage
 /playwright-report
 /test-results
+/.cache/hibi-content
 
 # next.js
 /.next/

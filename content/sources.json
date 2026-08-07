@@ -1,0 +1,26 @@
+{
+  "jmdict": {
+    "id": "edrdg-jmdict",
+    "name": "JMdict Japanese-Multilingual Dictionary",
+    "homepageUrl": "https://www.edrdg.org/wiki/JMdict-EDICT_Dictionary_Project.html",
+    "downloadUrl": "https://www.edrdg.org/pub/Nihongo/JMdict.gz",
+    "fileName": "JMdict.gz",
+    "recordTag": "entry",
+    "licenseName": "Creative Commons Attribution-ShareAlike 4.0 International",
+    "licenseUrl": "https://www.edrdg.org/edrdg/licence.html",
+    "attributionText": "This product uses the JMdict dictionary files. These files are the property of the Electronic Dictionary Research and Development Group and are used in conformance with the Group's licence.",
+    "updateFrequency": "monthly"
+  },
+  "kanjidic2": {
+    "id": "edrdg-kanjidic2",
+    "name": "KANJIDIC2",
+    "homepageUrl": "https://www.edrdg.org/wiki/KANJIDIC_Project.html",
+    "downloadUrl": "https://www.edrdg.org/pub/Nihongo/kanjidic2.xml.gz",
+    "fileName": "kanjidic2.xml.gz",
+    "recordTag": "character",
+    "licenseName": "Creative Commons Attribution-ShareAlike 4.0 International",
+    "licenseUrl": "https://www.edrdg.org/edrdg/licence.html",
+    "attributionText": "This product uses the KANJIDIC2 dictionary file. This file is the property of the Electronic Dictionary Research and Development Group and is used in conformance with the Group's licence.",
+    "updateFrequency": "monthly"
+  }
+}

@@ -9,6 +9,11 @@ if (!connectionString) {
 }
 
 const requiredTables = [
+  "content_sources",
+  "content_imports",
+  "dictionary_entries",
+  "kanji_entries",
+  "curriculum_mappings",
   "users",
   "knowledge_points",
   "mastery_declarations",
@@ -42,6 +47,59 @@ try {
   }
 
   await client.query("begin");
+  await client.query(
+    `insert into content_sources
+       (id, name, homepage_url, download_url, license_name, license_url,
+        attribution_text, update_frequency)
+     values ('__verify_source', 'verify', 'https://example.invalid',
+             'https://example.invalid/data', 'verify',
+             'https://example.invalid/license', 'verify', 'manual')`,
+  );
+  const imported = await client.query(
+    `insert into content_imports
+       (source_id, source_version, source_url, checksum_sha256, status)
+     values ('__verify_source', 'verify', 'https://example.invalid/data',
+             'verify', 'completed') returning id`,
+  );
+  const importId = imported.rows[0].id;
+  await client.query(
+    `insert into dictionary_entries
+       (id, source_id, source_entry_id, primary_kanji, primary_reading,
+        payload, last_import_id)
+     values ('__verify_dictionary', '__verify_source', 'verify', '日', 'ひ',
+             $1::jsonb, $2)`,
+    [JSON.stringify({ sequence: "verify", kanji: [], readings: [], senses: [] }), importId],
+  );
+  await client.query(
+    `insert into kanji_entries
+       (literal, source_id, stroke_count, payload, last_import_id)
+     values ('々', '__verify_source', 3, $1::jsonb, $2)`,
+    [
+      JSON.stringify({
+        literal: "々",
+        codepoints: [],
+        radicals: [],
+        misc: {
+          grade: null,
+          strokeCounts: [3],
+          variants: [],
+          frequency: null,
+          radicalNames: [],
+          jlptLegacy: null,
+        },
+        dictionaryReferences: [],
+        queryCodes: [],
+        readingMeaningGroups: [],
+        nanori: [],
+      }),
+      importId,
+    ],
+  );
+  await client.query(
+    `insert into curriculum_mappings
+       (curriculum_version, level, kind, dictionary_entry_id, rationale)
+     values ('verify', 'N5', 'vocabulary', '__verify_dictionary', 'verify')`,
+  );
   await client.query("insert into users (id) values ($1)", [verificationId]);
   await client.query(
     `insert into knowledge_points (id, kind, level, content_version)
