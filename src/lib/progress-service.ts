@@ -540,7 +540,9 @@ export async function createDailyPlan(
       vocabularyLimit: settings.vocabularyLimit,
       due,
       relearning,
-      newGrammar: [],
+      newGrammar: available
+        .filter((item) => item.kind === "grammar")
+        .map((item) => ({ knowledgePointId: item.id, kind: item.kind })),
       newVocabulary: available
         .filter((item) => item.kind === "vocabulary")
         .map((item) => ({ knowledgePointId: item.id, kind: item.kind })),

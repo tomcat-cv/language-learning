@@ -1,6 +1,6 @@
 # 日々（Hibi）
 
-日々是一款面向中文用户的日语学习 Web 应用原型，从可跳过的假名入门和 JLPT N5 开始。当前词汇目录使用本地 JMdict 正式词典数据，按日期生成复习优先的每日计划，并通过 PostgreSQL 保存学习作答、完成状态、“我已掌握”、到期短测、复习结果和重新学习状态。正式文法课程尚未接入，不用示例内容填充。配置模型后，还可以测试连接和提交 AI 请求。
+日々是一款面向中文用户的日语学习 Web 应用原型，从可跳过的假名入门和 JLPT N5 开始。当前词汇目录使用本地 JMdict 正式词典数据，文法目录使用 Japanese Language Data，按日期生成复习优先的每日计划，并通过 PostgreSQL 保存学习作答、完成状态、“我已掌握”、到期短测、复习结果和重新学习状态。配置模型后，还可以测试连接和提交 AI 请求。
 
 项目提供面向电脑和手机浏览器的响应式布局。学习者可以设置目标等级、每日文法与单词数量、学习时长，并填写 OpenAI、Anthropic、Google Gemini 或 OpenAI 兼容模型配置。
 
@@ -39,9 +39,10 @@ npm run dev
 
 如果只想浏览界面，可以暂不配置数据库；进度和复习功能会明确显示为不可用。本地开发模式不要求个人访问口令。
 
-`content:download` 从 EDRDG 官方 HTTPS 地址下载 JMdict 与 KANJIDIC2，并将压缩
+`content:download` 从 EDRDG 官方 HTTPS 地址下载 JMdict 与 KANJIDIC2；Japanese
+Language Data 文法 JSON 已随仓库保存在 `content/grammar/`。下载的压缩
 快照与 SHA-256 元数据放入 Git 忽略的 `.cache/hibi-content`。`content:import`
-校验文件后批量、幂等地导入 PostgreSQL。后续需要更新两份快照时运行：
+校验文件后批量、幂等地导入 PostgreSQL。后续需要更新内容快照时运行：
 
 ```bash
 npm run content:sync
@@ -60,8 +61,9 @@ npm run content:sync
 具体使用范围以 JLPT 官方站点政策为准。
 
 JMdict/KANJIDIC2 提供词典和汉字事实，并不提供当前 JLPT 的官方完整 N5–N1
-清单。应用把词典事实与“日々课程分级”分开保存；尚未审核发布的分级候选不会直接
-进入学习计划。
+清单。文法来自 Japanese Language Data，应用将其等级保存为 `hibi_level`，值为
+N5–N1；这些等级不是 JLPT 官方分级。文法数据保留 CC BY-SA 4.0 来源署名和原始
+草稿状态，当前按项目决定直接参与学习计划。
 
 ## 个人服务器部署
 
@@ -173,10 +175,10 @@ API Key 当前保存在该站点的浏览器 localStorage 中。提交造句或�
 | `npm start` | 启动构建后的服务 |
 | `npm run db:migrate` | 执行 PostgreSQL 迁移 |
 | `npm run db:verify` | 验证数据库结构和事务写入 |
-| `npm run content:download` | 下载并校验 JMdict/KANJIDIC2 快照 |
+| `npm run content:download` | 下载并校验 JMdict/KANJIDIC2 与 Japanese Language Data 文法快照 |
 | `npm run content:import` | 将本地快照幂等导入 PostgreSQL |
-| `npm run content:sync` | 下载并导入两份最新官方快照 |
-| `npm run content:catalog` | 将本地 JMdict/KANJIDIC2 快照生成可浏览的词汇/汉字目录 |
+| `npm run content:sync` | 下载并导入最新内容快照 |
+| `npm run content:catalog` | 将本地词汇、汉字和文法快照生成可浏览目录 |
 | `npm run question-bank:import-official` | 导入本机的 JLPT N1–N5 官方资料包 |
 
 首次运行浏览器测试前需要安装 Chromium 及其系统依赖：

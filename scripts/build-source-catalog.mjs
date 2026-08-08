@@ -42,13 +42,22 @@ async function main() {
   const kanjidicPath = path.join(inputDirectory, "kanjidic2.xml.gz");
   await readFile(`${jmdictPath}.metadata.json`);
   await readFile(`${kanjidicPath}.metadata.json`);
+  const grammarPath = path.join(root, "content", "grammar", "japanese-language-data.json");
+  const grammarPayload = JSON.parse(await readFile(grammarPath, "utf8"));
   await mkdir(outputDirectory, { recursive: true });
   const characterLevels = new Map();
-  const counts = { vocabulary: Object.fromEntries(levels.map((level) => [level, 0])), kanji: Object.fromEntries(levels.map((level) => [level, 0])) };
+  const counts = {
+    vocabulary: Object.fromEntries(levels.map((level) => [level, 0])),
+    kanji: Object.fromEntries(levels.map((level) => [level, 0])),
+    grammar: Object.fromEntries(levels.filter((level) => level !== "unranked").map((level) => [level, 0])),
+  };
   const streams = new Map();
   for (const level of levels) {
     streams.set(`vocabulary:${level}`, createWriteStream(path.join(outputDirectory, `vocabulary-${level}.ndjson`), { encoding: "utf8" }));
     streams.set(`kanji:${level}`, createWriteStream(path.join(outputDirectory, `kanji-${level}.ndjson`), { encoding: "utf8" }));
+    if (level !== "unranked") {
+      streams.set(`grammar:${level}`, createWriteStream(path.join(outputDirectory, `grammar-${level}.ndjson`), { encoding: "utf8" }));
+    }
   }
 
   for await (const xml of streamGzipRecords(kanjidicPath, "character")) {
@@ -89,13 +98,37 @@ async function main() {
     counts.vocabulary[level] += 1;
   }
 
+  for (const point of grammarPayload.grammar_points) {
+    const level = /^N[1-5]$/.test(point.level) ? point.level : "unranked";
+    if (level === "unranked") continue;
+    await writeJsonLines(streams, `grammar:${level}`, {
+      id: `japanese-language-data:${point.id}`,
+      pattern: point.pattern,
+      level,
+      hibiLevel: level,
+      levelBasis: "Japanese Language Data project level; not JLPT official classification",
+      meaning: point.meaning_detailed ?? point.meaning_en ?? "",
+      meaningEnglish: point.meaning_en ?? "",
+      connection: point.formation ?? "",
+      formationNotes: point.formation_notes ?? [],
+      formality: point.formality ?? null,
+      related: point.related ?? [],
+      examples: point.examples ?? [],
+      source: "Japanese Language Data",
+      sourceUrl: "https://github.com/jkindrix/japanese-language-data",
+      license: "CC BY-SA 4.0",
+      reviewStatus: point.review_status ?? "draft",
+    });
+    counts.grammar[level] += 1;
+  }
+
   await closeStreams(streams);
   const manifest = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     sourceDirectory: path.relative(root, inputDirectory),
     outputDirectory: path.relative(root, outputDirectory),
-    levelPolicy: "N5-N2 use KANJIDIC2 legacy jlpt hints only; N1 and unranked are not claimed as official JLPT classifications.",
+    levelPolicy: "Vocabulary/kanji use existing source hints; grammar uses the Japanese Language Data project's hibi_level values N5-N1 and is not claimed as official JLPT classification.",
     counts,
   };
   await writeFile(path.join(outputDirectory, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");

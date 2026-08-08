@@ -104,8 +104,8 @@
 | 第二版语音 | 录音、语音识别和发音评分 |
 | 模型服务 | OpenAI、Anthropic、Gemini、OpenAI 兼容接口 |
 | 开发部署 | 本地开发并提交 Git，用户后续部署到 Linux 服务器 |
-| 内容策略 | JMdict 等提供基础事实，自建课程结构，AI 生成适配内容 |
-| 内容接入 | 优先接入 JMdict、KANJIDIC2 和官方样题；没有可靠正式来源时不填充示例内容 |
+| 内容策略 | JMdict 等提供词汇/汉字基础事实，Japanese Language Data 提供文法候选，自建课程结构，AI 生成适配内容 |
+| 内容接入 | 接入 JMdict、KANJIDIC2、Japanese Language Data 和官方样题；文法使用 `hibi_level`（N5–N1），不声称是 JLPT 官方分级 |
 
 每日 10 个文法和 50 个单词是“新内容上限”，不是必须完成量。如果到期复习较多，或预计超过 30 分钟，系统应自动削减当日新内容。
 
@@ -268,6 +268,7 @@
 
 - JMdict：词条、读音、词性和释义候选。
 - KANJIDIC2：汉字读音和含义等信息。
+- Japanese Language Data：文法候选点、接续、解释和例句；项目将其等级保存为 `hibi_level`，值为 N5–N1。
 - JLPT 官方资料：能力描述、题型和难度方向。
 - Tatoeba：只作为可选候选例句来源，逐条核对许可、署名和自然度。
 

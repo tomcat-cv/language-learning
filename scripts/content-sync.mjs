@@ -49,6 +49,10 @@ async function loadSources() {
   return JSON.parse(await readFile(SOURCE_FILE, "utf8"));
 }
 
+function localSourcePath(source) {
+  return source.localFile ? path.resolve(process.cwd(), source.localFile) : null;
+}
+
 function selectSources(sources, requestedSource) {
   if (requestedSource === "all") return Object.entries(sources);
   const source = sources[requestedSource];
@@ -65,6 +69,10 @@ async function sha256(filePath) {
 }
 
 async function downloadSource(sourceKey, source, dataDirectory) {
+  if (source.localFile) {
+    console.log(`${sourceKey}: 使用仓库内本地文件 ${source.localFile}`);
+    return;
+  }
   await mkdir(dataDirectory, { recursive: true });
   const destination = path.join(dataDirectory, source.fileName);
   const temporary = `${destination}.partial`;
@@ -102,6 +110,19 @@ async function downloadSource(sourceKey, source, dataDirectory) {
 }
 
 async function readMetadata(source, dataDirectory) {
+  const localPath = localSourcePath(source);
+  if (localPath) {
+    const checksumSha256 = await sha256(localPath);
+    return {
+      filePath: localPath,
+      metadata: {
+        sourceId: source.id,
+        sourceUrl: source.downloadUrl,
+        checksumSha256,
+        downloadedAt: "repository",
+      },
+    };
+  }
   const filePath = path.join(dataDirectory, source.fileName);
   const metadataPath = `${filePath}.metadata.json`;
   const metadata = JSON.parse(await readFile(metadataPath, "utf8"));
@@ -144,7 +165,15 @@ async function upsertSource(client, source) {
 }
 
 function sourceVersion(metadata) {
-  return metadata.lastModified ?? metadata.etag ?? metadata.downloadedAt;
+  return metadata.checksumSha256 ?? metadata.lastModified ?? metadata.etag ?? metadata.downloadedAt;
+}
+
+async function readGrammarSource(filePath) {
+  const payload = JSON.parse(await readFile(filePath, "utf8"));
+  if (!payload || !Array.isArray(payload.grammar_points)) {
+    throw new Error("Japanese Language Data 文法文件缺少 grammar_points 数组。");
+  }
+  return payload;
 }
 
 function placeholders(rows, columns) {
@@ -277,19 +306,25 @@ export async function importSource(sourceKey, source, dataDirectory, limit = nul
     );
     importId = created.rows[0].id;
     await client.query("begin");
-    const table = sourceKey === "jmdict" ? "dictionary_entries" : "kanji_entries";
-    if (!limit) {
-      await client.query(`update ${table} set active = false where source_id = $1`, [source.id]);
+    let count;
+    if (sourceKey === "japaneseLanguageDataGrammar") {
+      const payload = await readGrammarSource(filePath);
+      count = limit ? Math.min(limit, payload.grammar_points.length) : payload.grammar_points.length;
+    } else {
+      const table = sourceKey === "jmdict" ? "dictionary_entries" : "kanji_entries";
+      if (!limit) {
+        await client.query(`update ${table} set active = false where source_id = $1`, [source.id]);
+      }
+      count = await importRecords(
+        client,
+        sourceKey,
+        source,
+        filePath,
+        importId,
+        limit,
+      );
     }
-    const count = await importRecords(
-      client,
-      sourceKey,
-      source,
-      filePath,
-      importId,
-      limit,
-    );
-    const minimum = sourceKey === "jmdict" ? 100_000 : 10_000;
+    const minimum = sourceKey === "jmdict" ? 100_000 : sourceKey === "kanjidic2" ? 10_000 : 1;
     if (!limit && count < minimum) {
       throw new Error(`${source.name} 仅解析到 ${count} 条，低于安全阈值 ${minimum}。`);
     }

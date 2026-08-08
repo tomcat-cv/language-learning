@@ -5,13 +5,19 @@ export type KnowledgeKind = "grammar" | "vocabulary";
 export type GrammarKnowledgePoint = {
   id: string;
   kind: "grammar";
-  level: CatalogLevel;
+  level: Exclude<CatalogLevel, "unranked">;
   contentVersion: 1;
   pattern: string;
   meaning: string;
   connection: string;
   example?: string;
   translation?: string;
+  source: string;
+  sourceUrl: string;
+  license: string;
+  levelBasis: string;
+  formality?: string | null;
+  related?: string[];
 };
 
 export type VocabularyKnowledgePoint = {
@@ -40,7 +46,28 @@ export type ReviewQuestion = {
 };
 
 const levels: Exclude<CatalogLevel, "unranked">[] = ["N5", "N4", "N3", "N2", "N1"];
-let allKnowledgePointsPromise: Promise<VocabularyKnowledgePoint[]> | null = null;
+let allKnowledgePointsPromise: Promise<KnowledgePoint[]> | null = null;
+
+function toGrammarPoint(entry: CatalogEntry): GrammarKnowledgePoint {
+  const example = entry.examples?.[0];
+  return {
+    id: entry.id,
+    kind: "grammar",
+    level: entry.level as Exclude<CatalogLevel, "unranked">,
+    contentVersion: 1,
+    pattern: entry.pattern ?? "",
+    meaning: entry.meaning ?? entry.meaningEnglish ?? "",
+    connection: entry.connection ?? "",
+    example: example?.japanese,
+    translation: example?.english,
+    source: entry.source,
+    sourceUrl: entry.sourceUrl ?? "https://github.com/jkindrix/japanese-language-data",
+    license: entry.license ?? "CC BY-SA 4.0",
+    levelBasis: entry.levelBasis,
+    formality: entry.formality,
+    related: entry.related,
+  };
+}
 
 function toVocabularyPoint(entry: CatalogEntry): VocabularyKnowledgePoint {
   return {
@@ -57,10 +84,13 @@ function toVocabularyPoint(entry: CatalogEntry): VocabularyKnowledgePoint {
   };
 }
 
-export async function loadKnowledgePoints(level?: Exclude<CatalogLevel, "unranked">): Promise<VocabularyKnowledgePoint[]> {
+export async function loadKnowledgePoints(level?: Exclude<CatalogLevel, "unranked">): Promise<KnowledgePoint[]> {
   if (level) {
-    const entries = await readCatalogEntries("vocabulary", level, "", Number.MAX_SAFE_INTEGER);
-    return entries.map(toVocabularyPoint);
+    const [grammarEntries, vocabularyEntries] = await Promise.all([
+      readCatalogEntries("grammar", level, "", Number.MAX_SAFE_INTEGER),
+      readCatalogEntries("vocabulary", level, "", Number.MAX_SAFE_INTEGER),
+    ]);
+    return [...grammarEntries.map(toGrammarPoint), ...vocabularyEntries.map(toVocabularyPoint)];
   }
   if (!allKnowledgePointsPromise) {
     allKnowledgePointsPromise = Promise.all(levels.map((item) => loadKnowledgePoints(item))).then((groups) => groups.flat());

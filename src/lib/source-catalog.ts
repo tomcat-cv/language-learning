@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 export type CatalogLevel = "N5" | "N4" | "N3" | "N2" | "N1" | "unranked";
-export type CatalogKind = "vocabulary" | "kanji";
+export type CatalogKind = "vocabulary" | "kanji" | "grammar";
 
 export type CatalogEntry = {
   id: string;
@@ -20,6 +20,18 @@ export type CatalogEntry = {
   strokeCount?: number | null;
   grade?: number | null;
   frequency?: number | null;
+  pattern?: string;
+  meaning?: string;
+  meaningEnglish?: string;
+  connection?: string;
+  formationNotes?: string[];
+  formality?: string | null;
+  related?: string[];
+  examples?: Array<{ japanese: string; english: string; source?: string }>;
+  hibiLevel?: Exclude<CatalogLevel, "unranked">;
+  sourceUrl?: string;
+  license?: string;
+  reviewStatus?: string;
 };
 
 const catalogDirectory = path.join(process.cwd(), ".local", "source-catalog");
@@ -42,7 +54,7 @@ export async function readCatalogEntries(kind: CatalogKind, level: CatalogLevel,
       .map((line) => JSON.parse(line) as CatalogEntry)
       .filter((entry) => {
         if (!normalizedQuery) return true;
-        const searchable = [entry.word, entry.reading, entry.literal, ...(entry.glosses ?? []), ...(entry.meanings ?? [])].filter(Boolean).join(" ").toLocaleLowerCase();
+        const searchable = [entry.word, entry.reading, entry.literal, entry.pattern, entry.meaning, entry.meaningEnglish, entry.connection, ...(entry.glosses ?? []), ...(entry.meanings ?? [])].filter(Boolean).join(" ").toLocaleLowerCase();
         return searchable.includes(normalizedQuery);
       })
       .slice(0, Number.isFinite(limit) ? limit : undefined);

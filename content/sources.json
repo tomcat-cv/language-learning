@@ -22,5 +22,17 @@
     "licenseUrl": "https://www.edrdg.org/edrdg/licence.html",
     "attributionText": "This product uses the KANJIDIC2 dictionary file. This file is the property of the Electronic Dictionary Research and Development Group and is used in conformance with the Group's licence.",
     "updateFrequency": "monthly"
+  },
+  "japaneseLanguageDataGrammar": {
+    "id": "japanese-language-data-grammar",
+    "name": "Japanese Language Data Grammar",
+    "homepageUrl": "https://github.com/jkindrix/japanese-language-data",
+    "downloadUrl": "https://raw.githubusercontent.com/jkindrix/japanese-language-data/main/data/grammar/grammar.json",
+    "localFile": "content/grammar/japanese-language-data.json",
+    "fileName": "japanese-language-data-grammar.json",
+    "licenseName": "Creative Commons Attribution-ShareAlike 4.0 International",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "attributionText": "Grammar dataset from the Japanese Language Data project (https://github.com/jkindrix/japanese-language-data), used under CC BY-SA 4.0.",
+    "updateFrequency": "as published"
   }
 }
