@@ -103,7 +103,7 @@ export function StudySession({ kind }: { kind: StudyKind }) {
     const config = loadSettings();
     if (!config.apiKey || !config.model) {
       setAiFeedback(
-        "示例反馈：句子已收到。配置模型后，将从目标文法、正确性、自然度和语境四个维度评价。",
+        "尚未配置模型，暂时不能提交 AI 反馈。",
       );
       return;
     }
@@ -221,10 +221,11 @@ export function StudySession({ kind }: { kind: StudyKind }) {
           <span className="page-eyebrow">TODAY&apos;S NEW ITEM</span>
           <h2>{title}</h2>
           <p className="page-lead">{subtitle}　·　{item.meaning}</p>
-          <div className="sentence">
+          {item.example && <div className="sentence">
             <SpeechButton text={item.example} />　{item.example}
-          </div>
-          <p className="page-lead">{item.translation}</p>
+          </div>}
+          {item.translation && <p className="page-lead">{item.translation}</p>}
+          {!item.example && <p className="source-note">当前源数据提供词条事实，尚未提供经过审核的例句。</p>}
           {item.kind === "grammar" && (
             <div className="optional-output">
               <span className="page-eyebrow">可选 · 主动输出</span>

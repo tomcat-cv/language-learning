@@ -1,0 +1,1 @@
+ALTER TABLE "study_plans" ADD COLUMN "target_level" text DEFAULT 'N5' NOT NULL;

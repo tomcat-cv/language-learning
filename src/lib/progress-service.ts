@@ -1,4 +1,4 @@
-import { and, asc, eq, lte, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, lte, ne, sql } from "drizzle-orm";
 import { getDatabase } from "@/db/client";
 import {
   attempts,
@@ -10,6 +10,7 @@ import {
   studyPlans,
   users,
 } from "@/db/schema";
+import type { CurriculumLevel } from "@/db/schema";
 import {
   scheduleLearnedItem,
   scheduleMasteryDeclaration,
@@ -21,7 +22,7 @@ import {
   createReviewQuestion,
   findKnowledgePoint,
   getCorrectReviewAnswer,
-  knowledgePoints,
+  loadKnowledgePoints,
   type KnowledgePoint,
 } from "@/lib/knowledge";
 
@@ -50,6 +51,7 @@ export type DailyPlan = {
   id: number;
   planDate: string;
   dailyMinutes: number;
+  targetLevel: CurriculumLevel;
   estimatedMinutes: number;
   completedCount: number;
   tasks: DailyPlanTask[];
@@ -58,6 +60,7 @@ export type DailyPlan = {
 export type DailyPlanSettings = {
   planDate: string;
   timezoneOffset: number;
+  targetLevel: CurriculumLevel;
   dailyMinutes: number;
   grammarLimit: number;
   vocabularyLimit: number;
@@ -94,11 +97,36 @@ export async function listProgress() {
   return rows.map(toProgressState);
 }
 
+export async function resetLevelProgress(level: CurriculumLevel) {
+  const db = getDatabase();
+  await db.transaction(async (transaction) => {
+    const items = await transaction
+      .select({ id: knowledgePointRows.id })
+      .from(knowledgePointRows)
+      .where(eq(knowledgePointRows.level, level));
+    const knowledgeIds = items.map((item) => item.id);
+    const plans = await transaction
+      .select({ id: studyPlans.id })
+      .from(studyPlans)
+      .where(and(eq(studyPlans.userId, LOCAL_USER_ID), eq(studyPlans.targetLevel, level)));
+    const planIds = plans.map((plan) => plan.id);
+    if (planIds.length > 0) {
+      await transaction.delete(studyPlanItems).where(inArray(studyPlanItems.planId, planIds));
+      await transaction.delete(studyPlans).where(inArray(studyPlans.id, planIds));
+    }
+    if (knowledgeIds.length === 0) return;
+    await transaction.delete(reviewLogs).where(inArray(reviewLogs.knowledgePointId, knowledgeIds));
+    await transaction.delete(attempts).where(inArray(attempts.knowledgePointId, knowledgeIds));
+    await transaction.delete(masteryDeclarations).where(inArray(masteryDeclarations.knowledgePointId, knowledgeIds));
+    await transaction.delete(reviewStates).where(inArray(reviewStates.knowledgePointId, knowledgeIds));
+  });
+}
+
 export async function declareMastery(
   knowledgePointId: string,
   now = new Date(),
 ) {
-  const item = findKnowledgePoint(knowledgePointId);
+  const item = await findKnowledgePoint(knowledgePointId);
   if (!item) {
     throw new Error("UNKNOWN_KNOWLEDGE_POINT");
   }
@@ -189,19 +217,20 @@ export async function listDueReviews(now = new Date()) {
   const dueStates = allStates.filter(
     (state) => state.stage !== "learning" && state.dueAt <= now,
   );
-  const items = dueStates.flatMap((state) => {
-    const item = findKnowledgePoint(state.knowledgePointId);
+  const pool = await loadKnowledgePoints();
+  const items = (await Promise.all(dueStates.map(async (state) => {
+    const item = await findKnowledgePoint(state.knowledgePointId);
     if (!item) {
       return [];
     }
     return [
       {
-        ...createReviewQuestion(item),
+        ...createReviewQuestion(item, pool),
         dueAt: state.dueAt.toISOString(),
         stage: state.stage,
       },
     ];
-  });
+  }))).flat();
 
   return {
     items,
@@ -217,7 +246,7 @@ export async function completeLearning(
   knowledgePointId: string,
   now = new Date(),
 ) {
-  const item = findKnowledgePoint(knowledgePointId);
+  const item = await findKnowledgePoint(knowledgePointId);
   if (!item) {
     throw new Error("UNKNOWN_KNOWLEDGE_POINT");
   }
@@ -279,7 +308,7 @@ export async function submitReview(
   answer: string,
   now = new Date(),
 ) {
-  const item = findKnowledgePoint(knowledgePointId);
+  const item = await findKnowledgePoint(knowledgePointId);
   if (!item) {
     throw new Error("UNKNOWN_KNOWLEDGE_POINT");
   }
@@ -342,7 +371,7 @@ export async function submitReview(
           ? { status: "completed", completedAt: now }
           : {
               taskType: "relearning",
-              estimatedMinutes: item.kind === "grammar" ? 4 : 2,
+              estimatedMinutes: 2,
               status: "pending",
               completedAt: null,
             },
@@ -374,14 +403,15 @@ async function readDailyPlan(planId: number): Promise<DailyPlan> {
   if (!plan) {
     throw new Error("STUDY_PLAN_NOT_FOUND");
   }
+  const pool = await loadKnowledgePoints(plan.targetLevel);
 
   const rows = await db
     .select()
     .from(studyPlanItems)
     .where(eq(studyPlanItems.planId, plan.id))
     .orderBy(asc(studyPlanItems.position));
-  const tasks = rows.flatMap((row): DailyPlanTask[] => {
-    const item = findKnowledgePoint(row.knowledgePointId);
+  const tasks = (await Promise.all(rows.map(async (row): Promise<DailyPlanTask[]> => {
+    const item = await findKnowledgePoint(row.knowledgePointId);
     if (!item) return [];
     return [
       {
@@ -392,15 +422,16 @@ async function readDailyPlan(planId: number): Promise<DailyPlan> {
         estimatedMinutes: row.estimatedMinutes,
         status: row.status,
         item,
-        question: createReviewQuestion(item),
+        question: createReviewQuestion(item, pool),
       },
     ];
-  });
+  }))).flat();
 
   return {
     id: plan.id,
     planDate: plan.planDate,
     dailyMinutes: plan.dailyMinutes,
+    targetLevel: plan.targetLevel,
     estimatedMinutes: tasks.reduce(
       (sum, task) => sum + task.estimatedMinutes,
       0,
@@ -430,7 +461,19 @@ export async function createDailyPlan(
   now = new Date(),
 ) {
   const existing = await getDailyPlan(settings.planDate);
-  if (existing) return existing;
+  if (
+    existing &&
+    existing.dailyMinutes === settings.dailyMinutes &&
+    existing.targetLevel === settings.targetLevel
+  ) {
+    const db = getDatabase();
+    const [row] = await db
+      .select({ grammarLimit: studyPlans.grammarLimit, vocabularyLimit: studyPlans.vocabularyLimit })
+      .from(studyPlans)
+      .where(eq(studyPlans.id, existing.id))
+      .limit(1);
+    if (row?.grammarLimit === settings.grammarLimit && row.vocabularyLimit === settings.vocabularyLimit) return existing;
+  }
 
   const db = getDatabase();
   const planId = await db.transaction(async (transaction) => {
@@ -447,7 +490,21 @@ export async function createDailyPlan(
         ),
       )
       .limit(1);
-    if (concurrentPlan) return concurrentPlan.id;
+    if (concurrentPlan) {
+      await transaction
+        .update(studyPlans)
+        .set({
+          targetLevel: settings.targetLevel,
+          dailyMinutes: settings.dailyMinutes,
+          grammarLimit: settings.grammarLimit,
+          vocabularyLimit: settings.vocabularyLimit,
+          timezoneOffset: settings.timezoneOffset,
+        })
+        .where(eq(studyPlans.id, concurrentPlan.id));
+      await transaction
+        .delete(studyPlanItems)
+        .where(and(eq(studyPlanItems.planId, concurrentPlan.id), eq(studyPlanItems.status, "pending")));
+    }
 
     await transaction
       .insert(users)
@@ -460,39 +517,37 @@ export async function createDailyPlan(
       .where(eq(reviewStates.userId, LOCAL_USER_ID))
       .orderBy(asc(reviewStates.dueAt));
     const knownIds = new Set(states.map((state) => state.knowledgePointId));
-    const due = states
+    const due = (await Promise.all(states
       .filter((state) => state.stage !== "learning" && state.dueAt <= now)
-      .flatMap((state) => {
-        const item = findKnowledgePoint(state.knowledgePointId);
-        return item
+      .map(async (state) => {
+        const item = await findKnowledgePoint(state.knowledgePointId);
+        return item && item.level === settings.targetLevel
           ? [{ knowledgePointId: item.id, kind: item.kind }]
           : [];
-      });
-    const relearning = states
+      }))).flat();
+    const relearning = (await Promise.all(states
       .filter((state) => state.stage === "learning")
-      .flatMap((state) => {
-        const item = findKnowledgePoint(state.knowledgePointId);
-        return item
+      .map(async (state) => {
+        const item = await findKnowledgePoint(state.knowledgePointId);
+        return item && item.level === settings.targetLevel
           ? [{ knowledgePointId: item.id, kind: item.kind }]
           : [];
-      });
-    const available = knowledgePoints.filter((item) => !knownIds.has(item.id));
+      }))).flat();
+    const available = (await loadKnowledgePoints(settings.targetLevel)).filter((item) => !knownIds.has(item.id));
     const tasks = buildStudyPlan({
       dailyMinutes: settings.dailyMinutes,
       grammarLimit: settings.grammarLimit,
       vocabularyLimit: settings.vocabularyLimit,
       due,
       relearning,
-      newGrammar: available
-        .filter((item) => item.kind === "grammar")
-        .map((item) => ({ knowledgePointId: item.id, kind: item.kind })),
+      newGrammar: [],
       newVocabulary: available
         .filter((item) => item.kind === "vocabulary")
         .map((item) => ({ knowledgePointId: item.id, kind: item.kind })),
     });
 
     for (const task of tasks) {
-      const item = findKnowledgePoint(task.knowledgePointId);
+      const item = await findKnowledgePoint(task.knowledgePointId);
       if (!item) continue;
       await transaction
         .insert(knowledgePointRows)
@@ -512,17 +567,20 @@ export async function createDailyPlan(
         });
     }
 
-    const [plan] = await transaction
-      .insert(studyPlans)
-      .values({
-        userId: LOCAL_USER_ID,
-        planDate: settings.planDate,
-        timezoneOffset: settings.timezoneOffset,
-        dailyMinutes: settings.dailyMinutes,
-        grammarLimit: settings.grammarLimit,
-        vocabularyLimit: settings.vocabularyLimit,
-      })
-      .returning({ id: studyPlans.id });
+    const plan = concurrentPlan
+      ? concurrentPlan
+      : (await transaction
+          .insert(studyPlans)
+          .values({
+            userId: LOCAL_USER_ID,
+            planDate: settings.planDate,
+            timezoneOffset: settings.timezoneOffset,
+            targetLevel: settings.targetLevel,
+            dailyMinutes: settings.dailyMinutes,
+            grammarLimit: settings.grammarLimit,
+            vocabularyLimit: settings.vocabularyLimit,
+          })
+          .returning({ id: studyPlans.id }))[0];
     if (tasks.length > 0) {
       await transaction.insert(studyPlanItems).values(
         tasks.map((task, position) => ({
@@ -581,7 +639,7 @@ export async function submitInitialLearning(
       throw new Error("PRIORITY_TASKS_PENDING");
     }
 
-    const item = findKnowledgePoint(row.planItem.knowledgePointId);
+    const item = await findKnowledgePoint(row.planItem.knowledgePointId);
     if (!item) throw new Error("UNKNOWN_KNOWLEDGE_POINT");
     const correct = answer === getCorrectReviewAnswer(item);
     await transaction.insert(attempts).values({

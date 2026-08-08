@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { hiragana } from "@/data/n5";
+import { hiragana } from "@/data/kana";
 
 export default function KanaPage(){
   const [playing,setPlaying]=useState<string>(); const router=useRouter();

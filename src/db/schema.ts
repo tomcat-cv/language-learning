@@ -12,6 +12,8 @@ import {
 } from "drizzle-orm/pg-core";
 import type { ReviewSchedule, ReviewStage } from "@/domain/review";
 
+export type CurriculumLevel = "N5" | "N4" | "N3" | "N2" | "N1";
+
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -177,7 +179,7 @@ export const curriculumMappings = pgTable(
   {
     id: serial("id").primaryKey(),
     curriculumVersion: text("curriculum_version").notNull(),
-    level: text("level").notNull().$type<"N5" | "N4" | "N3" | "N2" | "N1">(),
+    level: text("level").notNull().$type<CurriculumLevel>(),
     kind: text("kind").notNull().$type<"vocabulary" | "kanji">(),
     dictionaryEntryId: text("dictionary_entry_id").references(
       () => dictionaryEntries.id,
@@ -292,6 +294,7 @@ export const studyPlans = pgTable(
       .references(() => users.id),
     planDate: text("plan_date").notNull(),
     timezoneOffset: integer("timezone_offset").notNull(),
+    targetLevel: text("target_level").notNull().$type<CurriculumLevel>().default("N5"),
     dailyMinutes: integer("daily_minutes").notNull(),
     grammarLimit: integer("grammar_limit").notNull(),
     vocabularyLimit: integer("vocabulary_limit").notNull(),
@@ -330,6 +333,61 @@ export const studyPlanItems = pgTable(
     ),
     index("study_plan_items_plan_status_idx").on(table.planId, table.status),
   ],
+);
+
+export const examQuestionBanks = pgTable(
+  "exam_question_banks",
+  {
+    id: serial("id").primaryKey(),
+    sourceType: text("source_type").notNull().$type<"official" | "ai">(),
+    level: text("level").notNull().$type<CurriculumLevel>(),
+    title: text("title").notNull(),
+    sourceUrl: text("source_url"),
+    metadata: jsonb("metadata").notNull().$type<Record<string, unknown>>().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("exam_question_banks_level_source_idx").on(table.level, table.sourceType)],
+);
+
+export const examQuestions = pgTable(
+  "exam_questions",
+  {
+    id: serial("id").primaryKey(),
+    bankId: integer("bank_id").notNull().references(() => examQuestionBanks.id),
+    section: text("section").notNull(),
+    prompt: text("prompt").notNull(),
+    options: jsonb("options").notNull().$type<string[]>(),
+    answerIndex: integer("answer_index").notNull(),
+    explanation: text("explanation").notNull(),
+  },
+  (table) => [index("exam_questions_bank_idx").on(table.bankId)],
+);
+
+export const examAttempts = pgTable(
+  "exam_attempts",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => users.id),
+    bankId: integer("bank_id").notNull().references(() => examQuestionBanks.id),
+    level: text("level").notNull().$type<CurriculumLevel>(),
+    mode: text("mode").notNull().$type<"mock" | "official">(),
+    score: integer("score").notNull(),
+    passed: boolean("passed").notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("exam_attempts_user_level_idx").on(table.userId, table.level)],
+);
+
+export const certificates = pgTable(
+  "certificates",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => users.id),
+    level: text("level").notNull().$type<CurriculumLevel>(),
+    attemptId: integer("attempt_id").notNull().references(() => examAttempts.id),
+    awardedAt: timestamp("awarded_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("certificates_user_level_idx").on(table.userId, table.level)],
 );
 
 export const reviewLogs = pgTable(

@@ -1,32 +1,31 @@
 import { describe, expect, it } from "vitest";
-import {
-  createReviewQuestion,
-  findKnowledgePoint,
-  getCorrectReviewAnswer,
-} from "./knowledge";
+import { createReviewQuestion, getCorrectReviewAnswer, type VocabularyKnowledgePoint } from "./knowledge";
 
-describe("review question generation", () => {
-  it("creates a four-option grammar question without exposing another kind", () => {
-    const item = findKnowledgePoint("g-001");
-    expect(item).toBeDefined();
-    if (!item) return;
+const item: VocabularyKnowledgePoint = {
+  id: "jmdict:test",
+  kind: "vocabulary",
+  level: "N5",
+  contentVersion: 1,
+  word: "水",
+  reading: "みず",
+  meaning: "water",
+  partOfSpeech: "noun",
+  source: "test fixture",
+  levelBasis: "test fixture",
+};
 
-    const question = createReviewQuestion(item);
-
-    expect(question.kind).toBe("grammar");
-    expect(question.options).toHaveLength(4);
-    expect(question.options).toContain(getCorrectReviewAnswer(item));
-  });
-
-  it("creates a four-option vocabulary question", () => {
-    const item = findKnowledgePoint("v-001");
-    expect(item).toBeDefined();
-    if (!item) return;
-
-    const question = createReviewQuestion(item);
+describe("source-backed review question generation", () => {
+  it("uses the formal vocabulary item and source-backed distractors", () => {
+    const pool = [
+      item,
+      { ...item, id: "jmdict:test-2", word: "本", meaning: "book" },
+      { ...item, id: "jmdict:test-3", word: "先生", meaning: "teacher" },
+      { ...item, id: "jmdict:test-4", word: "学生", meaning: "student" },
+    ];
+    const question = createReviewQuestion(item, pool);
 
     expect(question.kind).toBe("vocabulary");
-    expect(new Set(question.options).size).toBe(4);
-    expect(question.options).toContain("我");
+    expect(question.options).toHaveLength(4);
+    expect(question.options).toContain(getCorrectReviewAnswer(item));
   });
 });

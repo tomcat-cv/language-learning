@@ -15,6 +15,7 @@ export async function ensureDailyPlan(settings: UserSettings) {
     body: JSON.stringify({
       planDate: getLocalPlanDate(),
       timezoneOffset: new Date().getTimezoneOffset(),
+      targetLevel: settings.targetLevel,
       dailyMinutes: settings.dailyMinutes,
       grammarLimit: settings.dailyGrammar,
       vocabularyLimit: settings.dailyVocabulary,

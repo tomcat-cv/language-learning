@@ -9,6 +9,8 @@ const links = [
   { href: "/grammar", label: "文法", icon: "文" },
   { href: "/vocabulary", label: "单词", icon: "語" },
   { href: "/review", label: "复习", icon: "↺" },
+  { href: "/exams", label: "测验", icon: "試" },
+  { href: "/content", label: "内容", icon: "庫" },
   { href: "/settings", label: "我的", icon: "人" },
 ];
 

@@ -1,19 +1,35 @@
-import {
-  grammarItems,
-  vocabularyItems,
-  type GrammarItem,
-  type VocabularyItem,
-} from "@/data/n5";
+import { readCatalogEntries, type CatalogEntry, type CatalogLevel } from "@/lib/source-catalog";
 
 export type KnowledgeKind = "grammar" | "vocabulary";
 
-export type KnowledgePoint =
-  | (GrammarItem & { kind: "grammar"; level: "N5"; contentVersion: 1 })
-  | (VocabularyItem & {
-      kind: "vocabulary";
-      level: "N5";
-      contentVersion: 1;
-    });
+export type GrammarKnowledgePoint = {
+  id: string;
+  kind: "grammar";
+  level: CatalogLevel;
+  contentVersion: 1;
+  pattern: string;
+  meaning: string;
+  connection: string;
+  example?: string;
+  translation?: string;
+};
+
+export type VocabularyKnowledgePoint = {
+  id: string;
+  kind: "vocabulary";
+  level: Exclude<CatalogLevel, "unranked">;
+  contentVersion: 1;
+  word: string;
+  reading: string;
+  meaning: string;
+  partOfSpeech: string;
+  example?: string;
+  translation?: string;
+  source: string;
+  levelBasis: string;
+};
+
+export type KnowledgePoint = GrammarKnowledgePoint | VocabularyKnowledgePoint;
 
 export type ReviewQuestion = {
   knowledgePointId: string;
@@ -23,65 +39,53 @@ export type ReviewQuestion = {
   options: string[];
 };
 
-export const knowledgePoints: KnowledgePoint[] = [
-  ...grammarItems.map(
-    (item): KnowledgePoint => ({
-      ...item,
-      kind: "grammar",
-      level: "N5",
-      contentVersion: 1,
-    }),
-  ),
-  ...vocabularyItems.map(
-    (item): KnowledgePoint => ({
-      ...item,
-      kind: "vocabulary",
-      level: "N5",
-      contentVersion: 1,
-    }),
-  ),
-];
+const levels: Exclude<CatalogLevel, "unranked">[] = ["N5", "N4", "N3", "N2", "N1"];
+let allKnowledgePointsPromise: Promise<VocabularyKnowledgePoint[]> | null = null;
 
-export function findKnowledgePoint(id: string) {
-  return knowledgePoints.find((item) => item.id === id);
+function toVocabularyPoint(entry: CatalogEntry): VocabularyKnowledgePoint {
+  return {
+    id: entry.id,
+    kind: "vocabulary",
+    level: entry.level as Exclude<CatalogLevel, "unranked">,
+    contentVersion: 1,
+    word: entry.word ?? entry.reading ?? "",
+    reading: entry.reading ?? "",
+    meaning: entry.glosses?.[0] ?? "暂无英文释义",
+    partOfSpeech: entry.partsOfSpeech?.join("、") ?? "词汇",
+    source: entry.source,
+    levelBasis: entry.levelBasis,
+  };
+}
+
+export async function loadKnowledgePoints(level?: Exclude<CatalogLevel, "unranked">): Promise<VocabularyKnowledgePoint[]> {
+  if (level) {
+    const entries = await readCatalogEntries("vocabulary", level, "", Number.MAX_SAFE_INTEGER);
+    return entries.map(toVocabularyPoint);
+  }
+  if (!allKnowledgePointsPromise) {
+    allKnowledgePointsPromise = Promise.all(levels.map((item) => loadKnowledgePoints(item))).then((groups) => groups.flat());
+  }
+  return allKnowledgePointsPromise;
+}
+
+export async function findKnowledgePoint(id: string) {
+  return (await loadKnowledgePoints()).find((item) => item.id === id);
 }
 
 export function getCorrectReviewAnswer(item: KnowledgePoint) {
   return item.meaning;
 }
 
-export function createReviewQuestion(item: KnowledgePoint): ReviewQuestion {
-  const sameKind = knowledgePoints.filter(
-    (candidate) => candidate.kind === item.kind,
-  );
-  const itemIndex = sameKind.findIndex((candidate) => candidate.id === item.id);
-  const distractors = sameKind
-    .filter((candidate) => candidate.id !== item.id)
-    .slice(itemIndex, itemIndex + 3);
-
-  if (distractors.length < 3) {
-    distractors.push(
-      ...sameKind
-        .filter(
-          (candidate) =>
-            candidate.id !== item.id && !distractors.includes(candidate),
-        )
-        .slice(0, 3 - distractors.length),
-    );
-  }
-
+export function createReviewQuestion(item: KnowledgePoint, pool: KnowledgePoint[] = [item]): ReviewQuestion {
+  const sameKind = pool.filter((candidate) => candidate.kind === item.kind && candidate.id !== item.id);
+  const distractors = sameKind.slice(0, 3);
   const answers = [item, ...distractors].map((candidate) => candidate.meaning);
-  const offset = Math.max(0, itemIndex) % answers.length;
-  const options = [...answers.slice(offset), ...answers.slice(0, offset)];
-
+  const options = [...answers].sort((left, right) => left.localeCompare(right, "zh-CN"));
   return {
     knowledgePointId: item.id,
     kind: item.kind,
     label: item.kind === "grammar" ? item.pattern : `${item.word}（${item.reading}）`,
-    prompt:
-      item.kind === "grammar"
-        ? `下面哪一项最符合「${item.pattern}」的含义？`
-        : `「${item.word}」最符合下面哪个含义？`,
+    prompt: item.kind === "grammar" ? `下面哪一项最符合「${item.pattern}」的含义？` : `「${item.word}」最符合下面哪个含义？`,
     options,
   };
 }

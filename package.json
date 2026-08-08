@@ -15,7 +15,9 @@
     "db:verify": "node scripts/verify-database.mjs",
     "content:download": "node scripts/content-sync.mjs download all",
     "content:import": "node --env-file=.env.local scripts/content-sync.mjs import all",
-    "content:sync": "node --env-file=.env.local scripts/content-sync.mjs sync all"
+    "content:sync": "node --env-file=.env.local scripts/content-sync.mjs sync all",
+    "content:catalog": "node scripts/build-source-catalog.mjs",
+    "question-bank:import-official": "node scripts/import-jlpt-official.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.67.0",

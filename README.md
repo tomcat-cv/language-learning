@@ -1,6 +1,6 @@
 # 日々（Hibi）
 
-日々是一款面向中文用户的日语学习 Web 应用原型，从可跳过的假名入门和 JLPT N5 开始。当前可以按日期生成复习优先的每日计划，在时间预算内学习首批文法和单词，并通过 PostgreSQL 保存普通学习作答、完成状态、“我已掌握”、到期短测、复习结果和重新学习状态。配置模型后，还可以测试连接和提交文法造句评价请求。
+日々是一款面向中文用户的日语学习 Web 应用原型，从可跳过的假名入门和 JLPT N5 开始。当前词汇目录使用本地 JMdict 正式词典数据，按日期生成复习优先的每日计划，并通过 PostgreSQL 保存学习作答、完成状态、“我已掌握”、到期短测、复习结果和重新学习状态。正式文法课程尚未接入，不用示例内容填充。配置模型后，还可以测试连接和提交 AI 请求。
 
 项目提供面向电脑和手机浏览器的响应式布局。学习者可以设置目标等级、每日文法与单词数量、学习时长，并填写 OpenAI、Anthropic、Google Gemini 或 OpenAI 兼容模型配置。
 
@@ -31,6 +31,7 @@ npm run db:migrate
 npm run db:verify
 npm run content:download
 npm run content:import
+npm run content:catalog
 npm run dev
 ```
 
@@ -45,6 +46,18 @@ npm run dev
 ```bash
 npm run content:sync
 ```
+
+`content:catalog` 将本地快照生成 Git 忽略的 `.local/source-catalog`，供“内容”页面
+浏览词汇和汉字。N5–N2 的等级只使用 KANJIDIC2 的旧 JLPT 提示，N1 使用频率/常用词
+启发式草稿；这些标签不是 JLPT 官方完整分级。未能可靠分级的条目保留在“未分级”中。
+
+个人本地题库可以将 JLPT 官方 N1–N5 样题资料下载到 Git 忽略的
+`.local/jlpt-official` 后运行 `npm run question-bank:import-official`。导入器会解压
+各等级资料，将官方幻灯片转换为可读取的结构并生成每级 `questions.json`，同时保留
+来源 PDF、原始幻灯片、音频引用和答案核验状态；所有结果都在 Git 忽略的
+`.local/question-bank` 中。答案未能从官方样题材料可靠核验的记录会标记为
+`needs-official-key`，不会被误当作可直接评分的题目。官方资料仅供个人学习使用，
+具体使用范围以 JLPT 官方站点政策为准。
 
 JMdict/KANJIDIC2 提供词典和汉字事实，并不提供当前 JLPT 的官方完整 N5–N1
 清单。应用把词典事实与“日々课程分级”分开保存；尚未审核发布的分级候选不会直接
@@ -121,10 +134,10 @@ npm run db:verify
 
 ## 快速体验
 
-1. 从“今日”页面生成并查看复习优先的日期计划。
+1. 从“内容”页面查看本地正式词汇、汉字和数据源分级状态。
 2. 进入“假名入门”，点击假名播放日语读音。
 3. 从今日计划进入文法或单词学习，答对含义题后建立次日复习状态。
-4. 从“文法”或“单词”目录浏览首批 N5 示例内容；对熟悉内容选择“我已掌握”，次日进入短测。
+4. 从“单词”目录浏览正式 JMdict 词汇；对熟悉内容选择“我已掌握”，次日进入短测。
 5. 短测未通过时回到相应目录补学，完成后重新安排复习。
 6. 在“我的”页面调整每日学习数量、时长和目标等级；新设置从下一份日期计划开始生效。
 7. 配置模型后，可在文法学习页提交可选的日语造句反馈请求。
@@ -163,6 +176,8 @@ API Key 当前保存在该站点的浏览器 localStorage 中。提交造句或�
 | `npm run content:download` | 下载并校验 JMdict/KANJIDIC2 快照 |
 | `npm run content:import` | 将本地快照幂等导入 PostgreSQL |
 | `npm run content:sync` | 下载并导入两份最新官方快照 |
+| `npm run content:catalog` | 将本地 JMdict/KANJIDIC2 快照生成可浏览的词汇/汉字目录 |
+| `npm run question-bank:import-official` | 导入本机的 JLPT N1–N5 官方资料包 |
 
 首次运行浏览器测试前需要安装 Chromium 及其系统依赖：
 

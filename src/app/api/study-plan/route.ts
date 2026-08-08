@@ -6,8 +6,10 @@ import {
   getDailyPlan,
   type DailyPlanSettings,
 } from "@/lib/progress-service";
+import type { CurriculumLevel } from "@/db/schema";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const LEVELS = new Set<CurriculumLevel>(["N5", "N4", "N3", "N2", "N1"]);
 
 function validInteger(
   value: unknown,
@@ -33,6 +35,8 @@ function parseSettings(value: unknown): DailyPlanSettings | null {
   if (
     typeof body.planDate !== "string" ||
     !DATE_PATTERN.test(body.planDate) ||
+    (body.targetLevel !== undefined && typeof body.targetLevel !== "string") ||
+    (body.targetLevel !== undefined && !LEVELS.has(body.targetLevel as CurriculumLevel)) ||
     !validInteger(body.timezoneOffset, -840, 840) ||
     !validInteger(body.dailyMinutes, 5, 240) ||
     !validInteger(body.grammarLimit, 0, 50) ||
@@ -41,7 +45,7 @@ function parseSettings(value: unknown): DailyPlanSettings | null {
   ) {
     return null;
   }
-  return body as DailyPlanSettings;
+  return { ...body, targetLevel: (body.targetLevel ?? "N5") as CurriculumLevel } as DailyPlanSettings;
 }
 
 export async function GET(request: Request) {
