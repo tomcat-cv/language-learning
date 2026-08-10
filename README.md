@@ -99,6 +99,24 @@ npm run build
 npm start -- --hostname 127.0.0.1 --port 3000
 ```
 
+后续每次将代码提交并推送到 `main` 后，可在服务器项目目录执行一键更新：
+
+```bash
+sudo /opt/hibi/current/scripts/deploy-production.sh
+```
+
+脚本会检查服务器工作树、拉取最新代码、安装锁定依赖、执行数据库迁移、运行检查和测试、构建生产版本，并重启 `hibi` systemd 服务。脚本不会同步词典文件；内容源更新仍按前面的内容同步命令单独执行。
+
+脚本默认使用以下路径和名称，也可以通过环境变量覆盖：
+
+```text
+HIBI_APP_DIR=/opt/hibi/current
+HIBI_BRANCH=main
+HIBI_SERVICE=hibi
+HIBI_ENV_FILE=/etc/hibi/hibi.env
+HIBI_APP_USER=hibi
+```
+
 仓库提供 [systemd 服务模板](deploy/hibi.service) 和 [Caddy 配置示例](deploy/Caddyfile.example)。复制前应按实际用户、目录和域名修改。反向代理成功签发 HTTPS 证书后，再从手机或其他设备访问；不要在明文 HTTP 页面中输入 API Key。
 
 服务仅监听 `127.0.0.1` 且尚未配置 HTTPS 时，可以从自己的电脑建立 SSH 隧道：
