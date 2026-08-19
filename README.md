@@ -25,8 +25,8 @@ npm ci
 ## 本地开发
 
 ```bash
-cp .env.example .env.local
-# 修改 .env.local 中的 DATABASE_URL
+cp .env.example .env
+# 修改 .env 中的 DATABASE_URL
 npm run db:migrate
 npm run db:verify
 npm run content:download
@@ -71,10 +71,9 @@ N5–N1；这些等级不是 JLPT 官方分级。文法数据保留 CC BY-SA 4.0
 
 - PostgreSQL 和独立强密码。
 - `HIBI_ACCESS_USERNAME` 与 `HIBI_ACCESS_PASSWORD`。
-- Caddy、Nginx 等反向代理提供端到端 HTTPS。
-- 只让 Next.js 监听 `127.0.0.1`，不要直接暴露其端口。
+- `hibi` systemd 服务（当前直接监听 `0.0.0.0:80`，尚未配置反向代理与 HTTPS）。
 
-示例环境文件 `/etc/hibi/hibi.env`：
+环境文件 `.env`（项目根目录，已由 `.gitignore` 忽略）：
 
 ```dotenv
 DATABASE_URL=postgresql://hibi:replace-db-password@127.0.0.1:5432/hibi
@@ -89,20 +88,22 @@ HIBI_ACCESS_PASSWORD=replace-with-a-long-random-password
 ```bash
 npm ci
 set -a
-. /etc/hibi/hibi.env
+. ./.env
 set +a
 npm run db:migrate
 npm run db:verify
 npm run lint
 npm test
 npm run build
-npm start -- --hostname 127.0.0.1 --port 3000
+sudo cp deploy/hibi.service /etc/systemd/system/hibi.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now hibi
 ```
 
 后续每次将代码提交并推送到 `main` 后，可在服务器项目目录执行一键更新：
 
 ```bash
-sudo /opt/hibi/current/scripts/deploy-production.sh
+sudo /home/admin/project/language-learning/scripts/deploy-production.sh
 ```
 
 脚本会检查服务器工作树、拉取最新代码、安装锁定依赖、执行数据库迁移、运行检查和测试、构建生产版本，并重启 `hibi` systemd 服务。脚本不会同步词典文件；内容源更新仍按前面的内容同步命令单独执行。
@@ -110,22 +111,14 @@ sudo /opt/hibi/current/scripts/deploy-production.sh
 脚本默认使用以下路径和名称，也可以通过环境变量覆盖：
 
 ```text
-HIBI_APP_DIR=/opt/hibi/current
+HIBI_APP_DIR=/home/admin/project/language-learning
 HIBI_BRANCH=main
 HIBI_SERVICE=hibi
-HIBI_ENV_FILE=/etc/hibi/hibi.env
-HIBI_APP_USER=hibi
+HIBI_ENV_FILE=/home/admin/project/language-learning/.env
+HIBI_APP_USER=admin
 ```
 
-仓库提供 [systemd 服务模板](deploy/hibi.service) 和 [Caddy 配置示例](deploy/Caddyfile.example)。复制前应按实际用户、目录和域名修改。反向代理成功签发 HTTPS 证书后，再从手机或其他设备访问；不要在明文 HTTP 页面中输入 API Key。
-
-服务仅监听 `127.0.0.1` 且尚未配置 HTTPS 时，可以从自己的电脑建立 SSH 隧道：
-
-```bash
-ssh -L 3000:127.0.0.1:3000 user@server-address
-```
-
-保持该连接打开，然后访问 <http://127.0.0.1:3000>。这种方式无需对外开放应用端口；仍应使用应用访问口令。
+仓库提供 [systemd 服务模板](deploy/hibi.service) 和 [Caddy 配置示例](deploy/Caddyfile.example)。复制前应按实际用户、目录和域名修改。当前尚未配置 HTTPS，不要在明文 HTTP 页面中输入 API Key；接入反向代理并签发证书后，再改回仅监听 `127.0.0.1` 并从手机等设备使用。
 
 ### 备份与恢复
 
@@ -187,7 +180,7 @@ API Key 当前保存在该站点的浏览器 localStorage 中。提交造句或�
 | `npm run dev` | 启动本地开发服务 |
 | `npm run lint` | 检查代码规范 |
 | `npm test` | 运行单元测试 |
-| `npm run test:integration` | 使用 `.env.local` 的 PostgreSQL 运行隔离集成测试 |
+| `npm run test:integration` | 使用 `.env` 的 PostgreSQL 运行隔离集成测试 |
 | `npm run test:e2e` | 构建应用并运行桌面与手机视口浏览器测试 |
 | `npm run build` | 创建生产构建 |
 | `npm start` | 启动构建后的服务 |

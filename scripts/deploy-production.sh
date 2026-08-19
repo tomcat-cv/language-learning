@@ -2,10 +2,10 @@
 
 set -Eeuo pipefail
 
-APP_DIR="${HIBI_APP_DIR:-/opt/hibi/current}"
+APP_DIR="${HIBI_APP_DIR:-/home/admin/project/language-learning}"
 BRANCH="${HIBI_BRANCH:-main}"
 SERVICE="${HIBI_SERVICE:-hibi}"
-ENV_FILE="${HIBI_ENV_FILE:-/etc/hibi/hibi.env}"
+ENV_FILE="${HIBI_ENV_FILE:-/home/admin/project/language-learning/.env}"
 APP_USER="${HIBI_APP_USER:-}"
 
 log() {

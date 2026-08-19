@@ -4,10 +4,10 @@ import { writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 
-const envPath = resolve(".env.local");
+const envPath = resolve(".env");
 
 if (existsSync(envPath)) {
-  console.error(".env.local 已存在，拒绝覆盖现有运行配置。");
+  console.error(".env 已存在，拒绝覆盖现有运行配置。");
   process.exit(1);
 }
 
@@ -59,7 +59,7 @@ try {
     `DATABASE_URL=postgresql://hibi:${password}@127.0.0.1:5432/hibi\n`,
     { encoding: "utf8", mode: 0o600, flag: "wx" },
   );
-  console.log("hibi 数据库、受限角色和 .env.local 已创建。");
+  console.log("hibi 数据库、受限角色和 .env 已创建。");
 } catch (error) {
   console.error(
     error instanceof Error ? error.message : "本地数据库初始化失败。",
