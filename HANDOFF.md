@@ -59,4 +59,21 @@ Sites 的生产 API 依赖平台注入的可信用户身份。独立服务器必
 5. iPhone 实测权限、MP4/WebM 支持、播放、锁屏/电话中断和键盘布局。
 6. 建立人工标注评价样例，然后再扩大内容或用户规模。
 
-本次没有修改个人服务器，也没有设置远程 Git 地址或推送。服务器环境检测报告及网络诊断文件不属于应用源码，未纳入提交。
+没有修改个人服务器。服务器环境检测报告及网络诊断文件不属于应用源码，未纳入提交。
+
+## GitHub 分支与远程接手
+
+用户指定的远程仓库为 `git@github.com:tomcat-cv/language-learning.git`，本地远程名称为 `origin`。
+
+- `main`：现有日语应用，读取时提交为 `3f46afe`，本轮不改动。
+- `english-mvp`：当前英语应用，保留原型的独立提交历史；本地开发也使用此分支。
+- 两个分支当前是独立代码树，不要直接覆盖、强推或将英语根目录替换到日语 main。
+
+远程开发会话可使用：
+
+```sh
+git clone --branch english-mvp --single-branch git@github.com:tomcat-cv/language-learning.git hibi-english
+cd hibi-english
+```
+
+随后按本文件和 README 配置环境。`.env`、访问诊断文件、个人服务器报告和用户记录均未推送。
