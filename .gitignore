@@ -6,3 +6,4 @@ dist/
 node_modules/
 outputs/
 .DS_Store
+work/
