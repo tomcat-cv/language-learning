@@ -1,0 +1,8 @@
+dist/
+.env
+.env.*
+!.env.example
+.dev.vars*
+node_modules/
+outputs/
+.DS_Store
