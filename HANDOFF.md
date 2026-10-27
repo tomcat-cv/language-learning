@@ -1,6 +1,15 @@
 # Hibi English 远程开发交接
 
-更新日期：2026-10-24，Asia/Shanghai。
+更新日期：2026-10-26，Asia/Shanghai。
+
+## 开发规范化（2026-10-26）
+
+- 新增 `AGENTS.md`，明确英语/日语分支边界、源码与生成文件、验证要求。
+- 开发 Node 固定为 `.nvmrc` 中的 24.12.0；先 `nvm install && nvm use`，再 `npm ci`。
+- 统一检查为 `npm run check`：版本检查 → API 测试 → 构建 → 产物验证。
+- 新增 `.github/workflows/ci.yml`，在 Ubuntu 24.04 运行同一检查，并检测提交的 Worker 是否与源码一致。需推送后才能取得实际 GitHub 运行结果。
+- 浏览器测试入口为 `npm run test:browser`，仍需单独准备 Playwright/浏览器并启动两个测试服务器；不包含在基础 CI 内。
+- 本阶段只规范开发流程，尚未新增 Linux 生产入口、认证或部署脚本。下方服务器诊断和既往验收记录保留其原始时间含义。
 
 ## 用户已经确认的方向
 
@@ -21,14 +30,15 @@
 
 ## 启动方式
 
-需要 Node.js 22+，建议 24；应用没有第三方运行依赖。
+开发使用 Node.js 24.12.0（`.nvmrc`）；应用没有第三方运行依赖。
 
 ```sh
+nvm install
+nvm use
+npm ci
 cp .env.example .env
 # 按账户实际能力填写模型、API Key 和随机 SESSION_SECRET
-npm test
-npm run build
-npm run validate
+npm run check
 npm start
 ```
 

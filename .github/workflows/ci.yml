@@ -1,0 +1,37 @@
+name: English development checks
+
+on:
+  push:
+    branches:
+      - english-mvp
+      - 'codex/**'
+  pull_request:
+    branches:
+      - english-mvp
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: english-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Node tests and build (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check environment, test, build and validate
+        run: npm run check
+      - name: Verify committed Worker matches source
+        run: git diff --exit-code -- worker/index.js

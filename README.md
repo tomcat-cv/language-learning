@@ -19,9 +19,13 @@
 
 ## 本地运行
 
-需要 Node.js 22+，推荐 Node.js 24。无需安装运行依赖。
+开发基线固定为 Node.js **24.12.0**，以 `.nvmrc` 为准，本地与 Linux CI 使用同一版本。当前没有第三方运行依赖；仍使用锁文件和 `npm ci`，方便以后可重复地安装依赖。
 
 ```sh
+nvm install
+nvm use
+npm ci
+npm run check
 cp .env.example .env
 # 编辑 .env，填写实际服务商支持的模型、密钥和随机签名密钥
 npm start
@@ -78,14 +82,26 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ## 验证
 
 ```sh
-npm test
-npm run build
-npm run validate
+npm run check
 ```
+
+统一检查依次执行 Node 版本检查、`npm test`、`npm run build` 和 `npm run validate`，任一步失败立即停止。不需要 `.env` 或真实模型密钥。
 
 接口测试使用注入的模型替身，不消耗真实额度，验证状态转换、身份隔离、防篡改、引用校验、错误处理和音频请求格式。
 
-浏览器测试另外需要 Playwright 以及 Chrome/对应引擎；分别启动本地开发服务器（3400）和 `node tests/fixture-server.mjs`（3401），再运行 `node tests/browser.mjs`。浏览器报告、截图写入忽略的 `outputs/qa`。
+浏览器测试另用 `npm run test:browser`，不包含在 `check` 或 CI 内。目前仍需自行准备可由 Node 解析的 Playwright 以及 Chrome/对应引擎；分别启动未配置 AI 的本地开发服务器（3400）和 `node tests/fixture-server.mjs`（3401），再运行浏览器测试。不要加载真实 `.env`，也不要继承真实 AI 配置；未配置页面是测试断言的一部分。浏览器报告、截图写入忽略的 `outputs/qa`。报告可能记录不可用引擎为 skipped，应明确说明实际覆盖范围。
+
+## 日常开发与 Linux CI
+
+1. 阅读 `AGENTS.md`，检查工作区，从英语应用 `english-mvp` 创建功能分支，例如 `codex/voice-retry`。日语应用在独立的 `main`，不要将英语根目录合并过去。
+2. 使用 `.nvmrc` 指定的 Node，运行 `npm ci`，在本地修改源码并体验功能。
+3. 运行 `npm run check`。页面或录音改动另做浏览器测试；真实语音和评价质量另做实机/真实服务验收。
+4. 提交源码和同步生成的 `worker/index.js`，PR 目标设为 `english-mvp`。
+5. GitHub Actions 在 Ubuntu 24.04 上运行相同检查，并检查 Worker 是否与源码一致。通过之后才进入后续发布流程。
+
+工作流为 `.github/workflows/ci.yml`：推送到 `english-mvp` 或 `codex/**`、向 `english-mvp` 提交 PR 时自动运行，并声明了手动触发入口（GitHub 是否显示该入口取决于默认分支是否包含工作流）。它不部署站点，也不使用生产密钥。配置提交并推送后才会在 GitHub 实际执行；是否强制合并前通过检查由仓库分支规则单独控制。
+
+升级 Node 时，同时更新 `.nvmrc`、`package.json` 的 engines、锁文件和本文说明，并重新运行完整检查。当前固定版本是本机验证基线，不代表永远保持该补丁版本；应定期评估安全更新。
 
 ## 当前边界与下一步
 
